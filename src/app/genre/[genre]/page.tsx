@@ -1,34 +1,41 @@
-'use client';
-import React, { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import React from 'react';
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Sparkles, ArrowLeft } from 'lucide-react';
 import AnimeCard from '@/components/AnimeCard';
 import { GENRE_COLORS } from '@/data/anime';
+import { CatalogueService } from '@/lib/services/catalogueService';
 
-export default function GenrePage() {
-  const params = useParams();
-  const genreParam = (params?.genre as string) || '';
-  const genreName = genreParam.charAt(0).toUpperCase() + genreParam.slice(1);
+export const dynamic = 'force-dynamic';
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ genre: string }>;
+}): Promise<Metadata> {
+  const { genre } = await params;
+  const genreName = genre ? genre.charAt(0).toUpperCase() + genre.slice(1) : 'Action';
+  return {
+    title: `${genreName} Anime — Watch Official Anime on YouTube | AnimeYT`,
+    description: `Browse officially licensed ${genreName} anime series streamed directly on YouTube on AnimeYT.`,
+  };
+}
+
+export default async function GenrePage({
+  params,
+}: {
+  params: Promise<{ genre: string }>;
+}) {
+  const { genre } = await params;
+  const genreName = genre ? genre.charAt(0).toUpperCase() + genre.slice(1) : 'Action';
   const dotColor = GENRE_COLORS[genreName] || '#FF5A7A';
 
-  const [animeList, setAnimeList] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const data = await CatalogueService.getCatalogue({
+    genre,
+    limit: 50,
+  });
 
-  useEffect(() => {
-    if (!genreParam) return;
-    setLoading(true);
-    fetch(`/api/catalogue?genre=${encodeURIComponent(genreParam)}&limit=50`)
-      .then((r) => r.json())
-      .then((data) => {
-        setAnimeList(data.items || []);
-        setLoading(false);
-      })
-      .catch(() => {
-        setAnimeList([]);
-        setLoading(false);
-      });
-  }, [genreParam]);
+  const animeList = data.items || [];
 
   return (
     <div className="flex flex-col gap-8 w-full">
@@ -61,14 +68,10 @@ export default function GenrePage() {
         </div>
       </div>
 
-      {loading ? (
-        <div className="glass rounded-[32px] p-12 text-center text-white/60">
-          Loading {genreName} anime...
-        </div>
-      ) : animeList.length > 0 ? (
+      {animeList.length > 0 ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-          {animeList.map((anime) => (
-            <AnimeCard key={anime.id || anime.slug} anime={anime} />
+          {animeList.map((anime, index) => (
+            <AnimeCard key={anime.id || anime.slug} anime={anime} priority={index < 5} />
           ))}
         </div>
       ) : (

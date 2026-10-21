@@ -1,86 +1,71 @@
-'use client';
-import React, { useState, useEffect } from 'react';
+import React from 'react';
+import type { Metadata } from 'next';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
 import {
   Play,
-  Bookmark,
-  Check,
   ExternalLink,
-  Clock,
-  Film,
   ShieldCheck,
   AlertCircle,
+  Film,
 } from 'lucide-react';
 import AnimePoster from '@/components/AnimePoster';
 import AnimeCard from '@/components/AnimeCard';
 import LanguageTag from '@/components/LanguageTag';
-import { useWatchlist } from '@/hooks/useWatchlist';
-import { getCachedAnime, fetchAnimeWithCache } from '@/lib/client/animeCache';
+import AnimeWatchlistButton from '@/components/AnimeWatchlistButton';
+import AnimeEpisodesSection from '@/components/AnimeEpisodesSection';
+import { CatalogueService } from '@/lib/services/catalogueService';
 
-export default function AnimeDetailsPage() {
-  const params = useParams();
-  const slug = (params?.slug as string) || '';
+export const dynamic = 'force-dynamic';
 
-  const [anime, setAnime] = useState<any>(() => getCachedAnime(slug));
-  const [loading, setLoading] = useState<boolean>(() => !getCachedAnime(slug));
-  const [feedback, setFeedback] = useState<string | null>(null);
-  const [selectedVersionIndex, setSelectedVersionIndex] = useState(0);
-  const [moreLikeThis, setMoreLikeThis] = useState<any[]>([]);
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  if (!slug) return { title: 'Anime Details — AnimeYT' };
 
-  const { isInWatchlist, toggleWatchlist } = useWatchlist();
+  const anime = await CatalogueService.getAnimeBySlug(slug);
+  if (!anime) return { title: 'Anime Not Found — AnimeYT' };
 
-  useEffect(() => {
-    if (!slug) return;
+  return {
+    title: `${anime.title} — Watch Official Anime on YouTube | AnimeYT`,
+    description: anime.synopsis
+      ? anime.synopsis.slice(0, 160)
+      : `Stream ${anime.title} legally on YouTube via verified distributor embeds on AnimeYT.`,
+    openGraph: {
+      title: `${anime.title} — AnimeYT`,
+      description: anime.synopsis ? anime.synopsis.slice(0, 160) : undefined,
+      images: anime.poster ? [{ url: anime.poster }] : undefined,
+    },
+  };
+}
 
-    const cached = getCachedAnime(slug);
-    if (cached) {
-      setAnime(cached);
-      setLoading(false);
-      const firstGenre = cached.genres?.[0] || 'Action';
-      fetch(`/api/catalogue?genre=${firstGenre}&limit=6`)
-        .then((r) => r.json())
-        .then((rec) => {
-          setMoreLikeThis((rec.items || []).filter((item: any) => item.slug !== slug).slice(0, 5));
-        })
-        .catch(() => {});
-      return;
-    }
-
-    setLoading(true);
-    fetchAnimeWithCache(slug)
-      .then((data) => {
-        setAnime(data);
-        setLoading(false);
-
-        // Fetch recommendations from same genre
-        const firstGenre = data.genres?.[0] || 'Action';
-        fetch(`/api/catalogue?genre=${firstGenre}&limit=6`)
-          .then((r) => r.json())
-          .then((rec) => {
-            setMoreLikeThis((rec.items || []).filter((item: any) => item.slug !== slug).slice(0, 5));
-          })
-          .catch(() => {});
-      })
-      .catch(() => {
-        setAnime(null);
-        setLoading(false);
-      });
-  }, [slug]);
-
-  if (loading) {
+export default async function AnimeDetailsPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug } = await params;
+  if (!slug) {
     return (
-      <div className="glass rounded-[36px] p-12 text-center text-white/60 my-12">
-        Loading anime details...
+      <div className="glass rounded-[36px] p-12 text-center max-w-lg mx-auto my-12">
+        <h1 className="text-2xl font-bold mb-3 text-white">Anime Not Found</h1>
+        <p className="text-white/60 mb-6">Invalid anime parameter provided.</p>
+        <Link href="/" className="btn-primary">Back to Home</Link>
       </div>
     );
   }
+
+  const anime = await CatalogueService.getAnimeBySlug(slug);
 
   if (!anime) {
     return (
       <div className="glass rounded-[36px] p-12 text-center max-w-lg mx-auto my-12">
         <h1 className="text-2xl font-bold mb-3 text-white">Anime Not Found</h1>
-        <p className="text-white/60 mb-6">The anime title you are looking for does not exist in our YouTube catalogue.</p>
+        <p className="text-white/60 mb-6">
+          The anime title you are looking for does not exist in our YouTube catalogue.
+        </p>
         <Link href="/" className="btn-primary">
           Back to Home
         </Link>
@@ -88,11 +73,19 @@ export default function AnimeDetailsPage() {
     );
   }
 
+  const primaryGenre = anime.genres?.[0];
+  const moreLikeThisResult = await CatalogueService.getCatalogue({
+    genre: primaryGenre,
+    limit: 6,
+  });
+  const moreLikeThis = (moreLikeThisResult.items || [])
+    .filter((item: any) => item.slug !== slug)
+    .slice(0, 5);
+
   const versions = anime.versions || [];
-  const currentVersion = versions[selectedVersionIndex] || versions[0];
-  const episodes = currentVersion?.episodes || [];
-  const firstEpisode = episodes[0];
   const totalVerifiedEpisodes = anime.verifiedEpisodeCount ?? anime.totalEpisodes ?? 0;
+  const firstEpisode = versions[0]?.episodes?.[0];
+  const currentVersion = versions[0];
 
   return (
     <div className="flex flex-col gap-8 w-full">
@@ -181,43 +174,11 @@ export default function AnimeDetailsPage() {
               </div>
             )}
 
-            {(() => {
-              const isSaved = anime ? isInWatchlist(anime._id?.toString() || anime.id, anime.slug) : false;
-              return (
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => {
-                      if (!anime) return;
-                      const animeId = anime._id?.toString() || anime.id || anime.slug;
-                      const added = toggleWatchlist(animeId, anime.slug);
-                      setFeedback(added ? 'Added to your Watchlist' : 'Removed from your Watchlist');
-                      setTimeout(() => setFeedback(null), 3000);
-                    }}
-                    className={`btn-secondary gap-2 text-[15px] px-6 transition-all ${
-                      isSaved ? 'border-[#FF8FB4]/50 bg-white/10' : ''
-                    }`}
-                    aria-label={isSaved ? 'In Watchlist' : 'Add to Watchlist'}
-                  >
-                    {isSaved ? (
-                      <>
-                        <Check strokeWidth={2} className="w-5 h-5 text-[#FF8FB4]" />
-                        <span className="text-white font-semibold">In Watchlist</span>
-                      </>
-                    ) : (
-                      <>
-                        <Bookmark strokeWidth={1.8} className="w-5 h-5" />
-                        <span>Add to Watchlist</span>
-                      </>
-                    )}
-                  </button>
-                  {feedback && (
-                    <span className="text-[13px] font-medium text-[#FF8FB4] bg-[#D81B60]/20 border border-[#D81B60]/30 px-3 py-1.5 rounded-full transition-all animate-in fade-in">
-                      {feedback}
-                    </span>
-                  )}
-                </div>
-              );
-            })()}
+            <AnimeWatchlistButton
+              animeId={anime._id?.toString() || anime.id || anime.slug}
+              slug={anime.slug}
+              title={anime.title}
+            />
           </div>
         </div>
       </div>
@@ -249,101 +210,8 @@ export default function AnimeDetailsPage() {
         )}
       </div>
 
-      {/* Episode List as Glass Rows */}
-      <div className="glass rounded-[36px] p-6 sm:p-8">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-white/10">
-          <div>
-            <h2 className="text-[22px] font-bold text-white">Episodes</h2>
-            <p className="text-[13px] text-white/60">
-              Only officially verified YouTube embeds are listed here.
-            </p>
-          </div>
-
-          {/* Audio Dub Selector */}
-          {versions.length > 1 && (
-            <div className="flex items-center gap-2">
-              <span className="text-[12px] font-bold text-white/50 uppercase">AUDIO:</span>
-              <div className="glass-chip rounded-full p-1 flex items-center gap-1">
-                {versions.map((ver: any, idx: number) => (
-                  <button
-                    key={ver.id || ver.audioLanguage}
-                    onClick={() => setSelectedVersionIndex(idx)}
-                    className={`px-3 py-1 rounded-full text-[12px] font-semibold transition-all ${
-                      selectedVersionIndex === idx
-                        ? 'bg-[#D81B60] text-white'
-                        : 'text-white/70 hover:text-white'
-                    }`}
-                  >
-                    {ver.audioLanguage}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Episode Rows or Clean Unverified State */}
-        {episodes.length > 0 ? (
-          <div className="flex flex-col gap-3">
-            {episodes.map((ep: any) => (
-              <Link
-                key={ep.id || ep.youtubeVideoId}
-                href={`/watch/${anime.slug}/${ep.id || ep.youtubeVideoId}`}
-                className="glass rounded-[24px] p-3 sm:p-4 flex items-center justify-between gap-4 hover:bg-white/[0.12] transition-all group"
-              >
-                <div className="flex items-center gap-4 min-w-0">
-                  <div className="relative w-[110px] sm:w-[130px] aspect-video rounded-[16px] overflow-hidden shrink-0 bg-[#160B24] border border-white/15">
-                    <img
-                      src={ep.thumbnail || `https://img.youtube.com/vi/${ep.youtubeVideoId}/hqdefault.jpg`}
-                      alt={ep.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      loading="lazy"
-                    />
-                    <div className="absolute inset-0 bg-black/25 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Play strokeWidth={2} className="w-6 h-6 text-white fill-white" />
-                    </div>
-                  </div>
-
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[12px] font-bold text-[#FF8FB4]">
-                        EP {ep.episodeNumber}
-                      </span>
-                      <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/10 text-white/70">
-                        {currentVersion.audioLanguage}
-                      </span>
-                    </div>
-                    <h3 className="text-[15px] sm:text-[16px] font-semibold text-white truncate group-hover:text-[#FF8FB4] transition-colors">
-                      {ep.title}
-                    </h3>
-                    <div className="flex items-center gap-2 text-[12px] text-white/50 mt-1">
-                      <Clock strokeWidth={1.8} className="w-3.5 h-3.5" />
-                      <span>{ep.duration || '24:00'}</span>
-                      <span>•</span>
-                      <span>{ep.sourceChannelName || currentVersion.channelName}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="w-11 h-11 rounded-full glass flex items-center justify-center text-white/80 shrink-0 group-hover:bg-[#D81B60] group-hover:text-white transition-all shadow-md">
-                  <Play strokeWidth={2} className="w-4 h-4 fill-current ml-0.5" />
-                </div>
-              </Link>
-            ))}
-          </div>
-        ) : (
-          <div className="glass-chip rounded-[24px] p-8 text-center flex flex-col items-center justify-center">
-            <AlertCircle strokeWidth={1.8} className="w-8 h-8 text-[#FF8FB4] mb-2" />
-            <h3 className="text-[17px] font-bold text-white mb-1">No Verified Episodes Available</h3>
-            <p className="text-[13.5px] text-white/60 max-w-md leading-relaxed mb-4">
-              We only display officially authorized YouTube episodes. This anime is catalogued for discovery while official streams are pending verification.
-            </p>
-            <Link href="/explore" className="btn-secondary text-[13px] px-5 py-2">
-              Explore Available Anime
-            </Link>
-          </div>
-        )}
-      </div>
+      {/* Interactive Episode List with Language Dub Switching */}
+      <AnimeEpisodesSection versions={versions} animeSlug={anime.slug} />
 
       {/* More Like This (5 columns in a row) */}
       {moreLikeThis.length > 0 && (

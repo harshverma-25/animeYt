@@ -1,32 +1,39 @@
-'use client';
-import React, { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import React from 'react';
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Globe, ArrowLeft } from 'lucide-react';
 import AnimeCard from '@/components/AnimeCard';
+import { CatalogueService } from '@/lib/services/catalogueService';
 
-export default function LanguagePage() {
-  const params = useParams();
-  const lang = (params?.lang as string) || '';
-  const capitalized = lang.charAt(0).toUpperCase() + lang.slice(1);
+export const dynamic = 'force-dynamic';
 
-  const [animeList, setAnimeList] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ lang: string }>;
+}): Promise<Metadata> {
+  const { lang } = await params;
+  const capitalized = lang ? lang.charAt(0).toUpperCase() + lang.slice(1) : 'Official';
+  return {
+    title: `${capitalized} Audio Anime — Watch Official Anime on YouTube | AnimeYT`,
+    description: `Stream anime officially licensed and dubbed in ${capitalized} on YouTube via AnimeYT.`,
+  };
+}
 
-  useEffect(() => {
-    if (!lang) return;
-    setLoading(true);
-    fetch(`/api/catalogue?lang=${encodeURIComponent(lang)}&limit=50`)
-      .then((r) => r.json())
-      .then((data) => {
-        setAnimeList(data.items || []);
-        setLoading(false);
-      })
-      .catch(() => {
-        setAnimeList([]);
-        setLoading(false);
-      });
-  }, [lang]);
+export default async function LanguagePage({
+  params,
+}: {
+  params: Promise<{ lang: string }>;
+}) {
+  const { lang } = await params;
+  const capitalized = lang ? lang.charAt(0).toUpperCase() + lang.slice(1) : 'Official';
+
+  const data = await CatalogueService.getCatalogue({
+    audioLanguage: lang,
+    limit: 50,
+  });
+
+  const animeList = data.items || [];
 
   return (
     <div className="flex flex-col gap-8 w-full">
@@ -56,22 +63,21 @@ export default function LanguagePage() {
         </div>
       </div>
 
-      {loading ? (
-        <div className="glass rounded-[32px] p-12 text-center text-white/60">
-          Loading {capitalized} anime...
-        </div>
-      ) : animeList.length > 0 ? (
+      {animeList.length > 0 ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-          {animeList.map((anime) => (
-            <AnimeCard key={anime.id || anime.slug} anime={anime} />
+          {animeList.map((anime, index) => (
+            <AnimeCard key={anime.id || anime.slug} anime={anime} priority={index < 5} />
           ))}
         </div>
       ) : (
-        <div className="glass rounded-[32px] p-12 text-center my-6">
-          <p className="text-lg font-semibold text-white mb-2">No anime currently found in {capitalized}.</p>
-          <p className="text-sm text-white/60 mb-5">Browse our full catalogue for more available languages.</p>
-          <Link href="/explore" className="btn-primary text-sm px-6">
-            Browse Catalogue
+        <div className="glass rounded-[36px] p-12 text-center max-w-lg mx-auto">
+          <Globe strokeWidth={1.8} className="w-12 h-12 text-[#FF8FB4] mx-auto mb-3" />
+          <h2 className="text-xl font-bold mb-2 text-white">No Anime Found</h2>
+          <p className="text-white/60 mb-6">
+            We currently do not have verified {capitalized} audio titles available. Check back soon or explore our other languages.
+          </p>
+          <Link href="/explore" className="btn-primary">
+            Explore All Anime
           </Link>
         </div>
       )}

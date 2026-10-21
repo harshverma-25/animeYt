@@ -24,10 +24,17 @@ export async function GET(
       seasonNumber,
     });
 
-    return NextResponse.json({
-      episodes,
-      count: episodes.length,
-    });
+    return NextResponse.json(
+      {
+        episodes,
+        count: episodes.length,
+      },
+      {
+        headers: {
+          'Cache-Control': 'public, max-age=60, s-maxage=300, stale-while-revalidate=600',
+        },
+      }
+    );
   } catch (err) {
     console.error('API /api/anime/[slug]/episodes error:', err);
     return NextResponse.json(

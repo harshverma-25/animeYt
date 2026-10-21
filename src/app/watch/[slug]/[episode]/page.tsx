@@ -1,7 +1,6 @@
-'use client';
-import React, { useState, useEffect } from 'react';
+import React from 'react';
+import type { Metadata } from 'next';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
 import {
   Play,
   ChevronLeft,
@@ -9,53 +8,68 @@ import {
   ExternalLink,
   ShieldCheck,
   Clock,
-  Share2,
-  Check,
-  AlertTriangle,
-  Bookmark,
 } from 'lucide-react';
-import { useWatchlist } from '@/hooks/useWatchlist';
-import { getCachedAnime, fetchAnimeWithCache } from '@/lib/client/animeCache';
+import WatchPageActions from '@/components/WatchPageActions';
+import { CatalogueService } from '@/lib/services/catalogueService';
 
-export default function WatchEpisodePage() {
-  const params = useParams();
-  const slug = (params?.slug as string) || '';
-  const episodeParam = (params?.episode || (params as any)?.episodeId) as string;
+export const dynamic = 'force-dynamic';
 
-  const [anime, setAnime] = useState<any>(() => getCachedAnime(slug));
-  const [loading, setLoading] = useState<boolean>(() => !getCachedAnime(slug));
-  const [copied, setCopied] = useState(false);
-  const { isInWatchlist, toggleWatchlist } = useWatchlist();
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string; episode?: string; episodeId?: string }>;
+}): Promise<Metadata> {
+  const resolved = await params;
+  const slug = resolved.slug;
+  const epParam = resolved.episode || resolved.episodeId;
 
-  useEffect(() => {
-    if (!slug) return;
+  if (!slug) return { title: 'Watch Anime — AnimeYT' };
 
-    const cached = getCachedAnime(slug);
-    if (cached) {
-      setAnime(cached);
-      setLoading(false);
-      return;
-    }
+  const anime = await CatalogueService.getAnimeBySlug(slug);
+  if (!anime) return { title: 'Episode Not Found — AnimeYT' };
 
-    setLoading(true);
-    fetchAnimeWithCache(slug)
-      .then((data) => {
-        setAnime(data);
-        setLoading(false);
-      })
-      .catch(() => {
-        setAnime(null);
-        setLoading(false);
-      });
-  }, [slug]);
+  const allEpisodes = (anime.versions || []).flatMap((v: any) => v.episodes || []);
+  const activeEpisode =
+    allEpisodes.find(
+      (ep: any) =>
+        ep.id === epParam ||
+        ep.youtubeVideoId === epParam ||
+        String(ep.episodeNumber) === epParam
+    ) || allEpisodes[0];
 
-  if (loading) {
+  const epTitle = activeEpisode ? `Episode ${activeEpisode.episodeNumber} - ${activeEpisode.title}` : 'Watch Episode';
+
+  return {
+    title: `${epTitle} | ${anime.title} — Watch on AnimeYT`,
+    description: `Watch ${anime.title} ${epTitle} officially streamed on YouTube via AnimeYT.`,
+    openGraph: {
+      title: `${anime.title} — ${epTitle}`,
+      description: `Watch ${epTitle} officially verified on AnimeYT`,
+      images: activeEpisode?.thumbnail ? [{ url: activeEpisode.thumbnail }] : anime.poster ? [{ url: anime.poster }] : undefined,
+    },
+  };
+}
+
+export default async function WatchEpisodePage({
+  params,
+}: {
+  params: Promise<{ slug: string; episode?: string; episodeId?: string }>;
+}) {
+  const resolved = await params;
+  const slug = resolved.slug || '';
+  const episodeParam = resolved.episode || resolved.episodeId;
+
+  if (!slug) {
     return (
-      <div className="glass rounded-[36px] p-12 text-center text-white/60 my-12">
-        Loading episode player...
+      <div className="glass rounded-[36px] p-12 text-center max-w-lg mx-auto my-12">
+        <h1 className="text-2xl font-bold mb-3 text-white">Anime Not Found</h1>
+        <p className="text-white/60 mb-6">Invalid anime slug parameter.</p>
+        <Link href="/" className="btn-primary">Back to Home</Link>
       </div>
     );
   }
+
+  const anime = await CatalogueService.getAnimeBySlug(slug);
 
   if (!anime) {
     return (
@@ -70,6 +84,20 @@ export default function WatchEpisodePage() {
   // Find all verified episodes across versions
   const allVersions = anime.versions || [];
   const allEpisodes: any[] = allVersions.flatMap((v: any) => v.episodes || []);
+
+  if (allEpisodes.length === 0) {
+    return (
+      <div className="glass rounded-[36px] p-12 text-center max-w-lg mx-auto my-12">
+        <h1 className="text-2xl font-bold mb-3 text-white">No Episodes Available</h1>
+        <p className="text-white/60 mb-6">
+          This anime does not have verified published YouTube episodes yet.
+        </p>
+        <Link href={`/anime/${anime.slug}`} className="btn-primary">
+          View Anime Info
+        </Link>
+      </div>
+    );
+  }
 
   // Find active verified episode
   const activeEpisode =
@@ -92,92 +120,32 @@ export default function WatchEpisodePage() {
   const prevEp = currentIndex > 0 ? versionEpisodes[currentIndex - 1] : null;
   const nextEp = currentIndex >= 0 && currentIndex < versionEpisodes.length - 1 ? versionEpisodes[currentIndex + 1] : null;
 
-  const handleCopyLink = () => {
-    if (typeof window !== 'undefined') {
-      navigator.clipboard.writeText(window.location.href);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
-
-  // If no verified episodes exist for this anime, do NOT play fake videos!
-  if (!activeEpisode) {
-    return (
-      <div className="glass rounded-[36px] p-12 text-center max-w-lg mx-auto my-12 flex flex-col items-center">
-        <AlertTriangle strokeWidth={1.8} className="w-10 h-10 text-[#FF8FB4] mb-3" />
-        <h1 className="text-2xl font-bold mb-2 text-white">No Verified Episodes Available</h1>
-        <p className="text-white/60 mb-6 text-sm leading-relaxed">
-          {anime.title} has no officially verified YouTube streams published at this time. We never stream unauthorized or unverified sources.
-        </p>
-        <Link href={`/anime/${anime.slug}`} className="btn-primary text-sm px-6">
-          View Anime Overview
-        </Link>
-      </div>
-    );
-  }
+  const animeId = anime._id?.toString() || anime.id || anime.slug;
 
   return (
-    <div className="flex flex-col gap-7 w-full">
-      {/* Breadcrumb / Top Bar */}
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-2 text-[13px] text-white/60">
-          <Link href="/" className="hover:text-white transition-colors">Home</Link>
+    <div className="flex flex-col gap-6 w-full">
+      {/* Breadcrumb Navigation & Top Actions */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm">
+        <div className="flex items-center gap-2 text-white/60 flex-wrap">
+          <Link href="/" className="hover:text-white transition-colors">
+            Home
+          </Link>
           <span>/</span>
-          <Link href="/explore" className="hover:text-white transition-colors">Explore</Link>
+          <Link href="/explore" className="hover:text-white transition-colors">
+            Catalogue
+          </Link>
           <span>/</span>
-          <Link href={`/anime/${anime.slug}`} className="hover:text-white transition-colors">
+          <Link
+            href={`/anime/${anime.slug}`}
+            className="hover:text-white transition-colors font-medium truncate max-w-[200px]"
+          >
             {anime.title}
           </Link>
           <span>/</span>
           <span className="text-[#FF8FB4] font-medium">Episode {activeEpisode.episodeNumber}</span>
         </div>
 
-        <div className="flex items-center gap-2.5">
-          {anime && (() => {
-            const isSaved = isInWatchlist(anime._id?.toString() || anime.id, anime.slug);
-            return (
-              <button
-                onClick={() => {
-                  const animeId = anime._id?.toString() || anime.id || anime.slug;
-                  toggleWatchlist(animeId, anime.slug);
-                }}
-                className={`glass-chip inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[12px] font-semibold transition-all ${
-                  isSaved ? 'text-[#FF8FB4] border-[#FF8FB4]/50 bg-[#D81B60]/20' : 'text-white/80 hover:text-white'
-                }`}
-                aria-label={isSaved ? 'In Watchlist' : 'Add to Watchlist'}
-              >
-                {isSaved ? (
-                  <>
-                    <Check strokeWidth={2} className="w-3.5 h-3.5 text-[#FF8FB4]" />
-                    <span>In Watchlist</span>
-                  </>
-                ) : (
-                  <>
-                    <Bookmark strokeWidth={1.8} className="w-3.5 h-3.5" />
-                    <span>Add to Watchlist</span>
-                  </>
-                )}
-              </button>
-            );
-          })()}
-
-          <button
-            onClick={handleCopyLink}
-            className="glass-chip inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[12px] font-semibold text-white/80 hover:text-white transition-all"
-          >
-            {copied ? (
-              <>
-                <Check strokeWidth={1.8} className="w-3.5 h-3.5 text-[#FF8FB4]" />
-                <span>Link Copied</span>
-              </>
-            ) : (
-              <>
-                <Share2 strokeWidth={1.8} className="w-3.5 h-3.5 text-[#FF8FB4]" />
-                <span>Share Episode</span>
-              </>
-            )}
-          </button>
-        </div>
+        <WatchPageActions animeId={animeId} slug={anime.slug} title={anime.title} />
       </div>
 
       {/* Main Player Row */}
@@ -212,7 +180,7 @@ export default function WatchEpisodePage() {
                   )}
                   {activeEpisode.duration && (
                     <span className="text-[12px] text-white/50 flex items-center gap-1">
-                      <Clock strokeWidth={1.8} className="w-3 h-3" />
+                      <Clock strokeWidth={1.8} className="w-3.5 h-3.5" />
                       {activeEpisode.duration}
                     </span>
                   )}
@@ -337,6 +305,8 @@ export default function WatchEpisodePage() {
                     <img
                       src={ep.thumbnail || `https://img.youtube.com/vi/${ep.youtubeVideoId}/hqdefault.jpg`}
                       alt={ep.title}
+                      width={86}
+                      height={48}
                       className="w-full h-full object-cover"
                       loading="lazy"
                     />

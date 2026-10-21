@@ -12,17 +12,32 @@ function SearchResultsContent() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let isCancelled = false;
+    const controller = new AbortController();
+
     setLoading(true);
-    fetch(`/api/catalogue?q=${encodeURIComponent(query)}&limit=50`)
+    fetch(`/api/catalogue?q=${encodeURIComponent(query)}&limit=50`, {
+      signal: controller.signal,
+    })
       .then((r) => r.json())
       .then((data) => {
-        setResults(data.items || []);
-        setLoading(false);
+        if (!isCancelled) {
+          setResults(data.items || []);
+          setLoading(false);
+        }
       })
-      .catch(() => {
-        setResults([]);
-        setLoading(false);
+      .catch((err) => {
+        if (err.name === 'AbortError') return;
+        if (!isCancelled) {
+          setResults([]);
+          setLoading(false);
+        }
       });
+
+    return () => {
+      isCancelled = true;
+      controller.abort();
+    };
   }, [query]);
 
   return (

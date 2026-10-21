@@ -93,16 +93,17 @@ export class CatalogueService {
 
       const conditions: Record<string, any>[] = [];
 
-      // Text / query search
+      // Text / query search with safe escaped regex
       if (params.query && params.query.trim()) {
         const q = params.query.trim();
+        const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         conditions.push({
           $or: [
-            { title: { $regex: q, $options: 'i' } },
-            { englishTitle: { $regex: q, $options: 'i' } },
-            { romajiTitle: { $regex: q, $options: 'i' } },
-            { synopsis: { $regex: q, $options: 'i' } },
-            { genres: { $regex: q, $options: 'i' } },
+            { title: { $regex: escaped, $options: 'i' } },
+            { englishTitle: { $regex: escaped, $options: 'i' } },
+            { romajiTitle: { $regex: escaped, $options: 'i' } },
+            { slug: { $regex: escaped.toLowerCase(), $options: 'i' } },
+            { genres: { $regex: `^${escaped}$`, $options: 'i' } },
           ],
         });
       }
@@ -132,10 +133,12 @@ export class CatalogueService {
         });
       }
 
-      // Audio language filter: query verified versions directly in DB before pagination
+      // Audio language filter: query verified versions directly in DB before pagination using covered index
       if (params.audioLanguage && params.audioLanguage.toLowerCase() !== 'all') {
+        const langParam = params.audioLanguage.trim();
+        const langNorm = langParam.charAt(0).toUpperCase() + langParam.slice(1).toLowerCase();
         const matchingAnimeIds = await AnimeVersion.distinct('anime', {
-          audioLanguage: new RegExp(`^${params.audioLanguage}$`, 'i'),
+          audioLanguage: { $in: [langNorm, langParam] },
           verificationStatus: 'verified',
         });
         conditions.push({ _id: { $in: matchingAnimeIds } });
@@ -159,24 +162,32 @@ export class CatalogueService {
       }
 
       const [animeDocs, total] = await Promise.all([
-        Anime.find(query).sort(sortObj).skip(skip).limit(limit).lean(),
+        Anime.find(query)
+          .select('_id title englishTitle romajiTitle slug synopsis poster backdrop genres releaseYear status isFeatured popularityScore verifiedEpisodeCount')
+          .sort(sortObj)
+          .skip(skip)
+          .limit(limit)
+          .lean(),
         Anime.countDocuments(query),
       ]);
 
-      // Attach verified audio languages and verified episode count
+      // Attach verified audio languages using lean covered index projection
       const animeIds = animeDocs.map((a: any) => a._id);
-      const versions = await AnimeVersion.find({
-        anime: { $in: animeIds },
-        verificationStatus: 'verified',
-      }).lean();
+      const versions = animeIds.length > 0
+        ? await AnimeVersion.find({
+            anime: { $in: animeIds },
+            verificationStatus: 'verified',
+          })
+            .select('_id anime audioLanguage')
+            .lean()
+        : [];
 
       const items = animeDocs.map((anime: any) => {
         const animeVersions = versions.filter((v: any) => v.anime.toString() === anime._id.toString());
         const availableAudioLanguages = Array.from(new Set(animeVersions.map((v: any) => v.audioLanguage as string)));
-        const plain = JSON.parse(JSON.stringify(anime));
 
         return {
-          ...plain,
+          ...anime,
           _id: anime._id.toString(),
           id: anime._id.toString(),
           availableAudioLanguages,
@@ -285,9 +296,8 @@ export class CatalogueService {
         new Set(versionsWithEpisodes.map((v) => v.audioLanguage as string))
       );
 
-      const plainAnime = JSON.parse(JSON.stringify(anime));
       const result = {
-        ...plainAnime,
+        ...anime,
         _id: anime._id.toString(),
         id: anime._id.toString(),
         versions: versionsWithEpisodes,
@@ -404,19 +414,25 @@ export class CatalogueService {
       return { featured: [], popular: [], recentlyAdded: [] };
     }
 
+    const homeSelect =
+      '_id title englishTitle romajiTitle slug synopsis poster backdrop genres releaseYear status isFeatured popularityScore verifiedEpisodeCount';
+
     const [featuredDocs, popularDocs, recentDocs] = await Promise.all([
       // Featured: marked featured or top with verified episodes
       Anime.find({ $or: [{ isFeatured: true }, { verifiedEpisodeCount: { $gt: 0 } }] })
+        .select(homeSelect)
         .sort({ isFeatured: -1, popularityScore: -1 })
         .limit(5)
         .lean(),
-      // Popular: sorted by popularity score
+      // Popular: sorted by popularity score and creation date matching compound index
       Anime.find({})
-        .sort({ popularityScore: -1 })
+        .select(homeSelect)
+        .sort({ popularityScore: -1, createdAt: -1 })
         .limit(5)
         .lean(),
-      // Recently added: sorted by release year or creation date
+      // Recently added: sorted by createdAt and releaseYear matching compound index
       Anime.find({})
+        .select(homeSelect)
         .sort({ createdAt: -1, releaseYear: -1 })
         .limit(5)
         .lean(),
@@ -426,17 +442,20 @@ export class CatalogueService {
       new Set([...featuredDocs, ...popularDocs, ...recentDocs].map((a: any) => a._id))
     );
 
-    const versions = await AnimeVersion.find({
-      anime: { $in: allIds },
-      verificationStatus: 'verified',
-    }).lean();
+    const versions = allIds.length > 0
+      ? await AnimeVersion.find({
+          anime: { $in: allIds },
+          verificationStatus: 'verified',
+        })
+          .select('_id anime audioLanguage')
+          .lean()
+      : [];
 
     const mapAnime = (animeList: any[]) =>
       animeList.map((a: any) => {
         const aVersions = versions.filter((v: any) => v.anime.toString() === a._id.toString());
-        const plain = JSON.parse(JSON.stringify(a));
         return {
-          ...plain,
+          ...a,
           _id: a._id.toString(),
           id: a._id.toString(),
           availableAudioLanguages: Array.from(new Set(aVersions.map((v: any) => v.audioLanguage as string))),
