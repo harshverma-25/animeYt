@@ -1,4 +1,4 @@
-import { test, describe, before } from 'node:test';
+import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert';
 import mongoose from 'mongoose';
 import { CatalogueService } from '../src/lib/services/catalogueService';
@@ -39,6 +39,11 @@ describe('AnimeYT LocalStorage Watchlist Tests', () => {
       verifiedEpisodeCount: 1,
       popularityScore: 95,
     });
+  });
+
+  after(async () => {
+    await Anime.deleteMany({ slug: { $in: ['test-watchlist-naruto', 'test-watchlist-bleach'] } });
+    await mongoose.disconnect();
   });
 
   test('Watchlist storage key matches versioned requirement animeyt_watchlist_v1', () => {

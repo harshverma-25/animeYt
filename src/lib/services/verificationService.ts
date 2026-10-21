@@ -49,12 +49,12 @@ export class VerificationService {
     const targetQuery = payload.animeId
       ? { _id: payload.animeId }
       : payload.animeSlug
-      ? { slug: payload.animeSlug }
-      : candidate.candidateAnimeId
-      ? { _id: candidate.candidateAnimeId }
-      : candidate.candidateAnimeSlug
-      ? { slug: candidate.candidateAnimeSlug }
-      : null;
+        ? { slug: payload.animeSlug }
+        : candidate.candidateAnimeId
+          ? { _id: candidate.candidateAnimeId }
+          : candidate.candidateAnimeSlug
+            ? { slug: candidate.candidateAnimeSlug }
+            : null;
 
     if (!targetQuery) {
       throw new Error('Must specify target anime to verify candidate');
@@ -118,10 +118,10 @@ export class VerificationService {
     const epQuery = existingByVid
       ? { _id: existingByVid._id }
       : {
-          version: version._id,
-          seasonNumber,
-          episodeNumber,
-        };
+        version: version._id,
+        seasonNumber,
+        episodeNumber,
+      };
 
     const episode = await Episode.findOneAndUpdate(
       epQuery,

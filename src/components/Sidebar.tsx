@@ -29,7 +29,6 @@ const GENRES = [
 const LANGUAGES = [
   { name: 'Hindi', code: 'hindi' },
   { name: 'English', code: 'english' },
-  { name: 'Japanese', code: 'japanese' },
 ];
 
 export default function Sidebar() {

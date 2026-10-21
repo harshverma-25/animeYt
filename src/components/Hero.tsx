@@ -34,7 +34,7 @@ export default function Hero({ featuredAnime }: HeroProps) {
   const firstEp = anime.versions?.[0]?.episodes?.[0];
   const verifiedCount = anime.verifiedEpisodeCount ?? anime.totalEpisodes ?? 0;
   const watchHref = firstEp ? `/watch/${anime.slug}/${firstEp.id || firstEp.youtubeVideoId}` : `/anime/${anime.slug}`;
-  const languages = anime.availableAudioLanguages || anime.languages || ['Japanese'];
+  const languages = anime.availableAudioLanguages || anime.languages || ['Hindi'];
   const posterUrl = anime.backdrop || anime.poster || (firstEp ? `https://img.youtube.com/vi/${firstEp.youtubeVideoId}/hqdefault.jpg` : undefined);
 
   return (

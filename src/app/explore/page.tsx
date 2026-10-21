@@ -21,7 +21,7 @@ function ExploreContent() {
   const [loading, setLoading] = useState(true);
 
   const genres = ['All', 'Action', 'Adventure', 'Comedy', 'Fantasy', 'Romance', 'Sci-Fi', 'Thriller'];
-  const languages = ['All', 'Hindi', 'English', 'Japanese'];
+  const languages = ['All', 'Hindi', 'English'];
 
   // Fetch real data from MongoDB API
   useEffect(() => {

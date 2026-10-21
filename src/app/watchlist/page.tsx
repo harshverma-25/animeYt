@@ -9,7 +9,9 @@ export default function WatchlistPage() {
   const { watchlist, count, isInitialized, removeFromWatchlist, clearWatchlist } = useWatchlist();
   const [savedItems, setSavedItems] = useState<any[]>([]);
   const savedItemsRef = useRef<any[]>([]);
-  savedItemsRef.current = savedItems;
+  useEffect(() => {
+    savedItemsRef.current = savedItems;
+  }, [savedItems]);
   const [loading, setLoading] = useState(true);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);

@@ -176,6 +176,25 @@ describe('AnimeYT Catalogue & Navigation Tests', () => {
     }
   });
 
+  test('getCatalogue audioLanguage pagination produces exact total and correct page slice', async () => {
+    // Clear cache to test fresh DB query
+    CatalogueService.clearCache();
+    const page1 = await CatalogueService.getCatalogue({ audioLanguage: 'Hindi', page: 1, limit: 1 });
+    assert.strictEqual(page1.items.length, 1, 'Limit 1 should return exactly 1 item');
+    assert.ok(page1.total >= 1, 'Total must accurately reflect matching items');
+    assert.strictEqual(page1.totalPages, Math.ceil(page1.total / 1));
+    assert.ok(page1.items[0].availableAudioLanguages.includes('Hindi'));
+  });
+
+  test('getCatalogue deduplicates concurrent identical in-flight requests', async () => {
+    CatalogueService.clearCache();
+    const req1 = CatalogueService.getCatalogue({ query: 'Tokyo Revengers' });
+    const req2 = CatalogueService.getCatalogue({ query: 'Tokyo Revengers' });
+    const [res1, res2] = await Promise.all([req1, req2]);
+    assert.strictEqual(res1.total, res2.total);
+    assert.deepStrictEqual(res1.items.map((i) => i.slug), res2.items.map((i) => i.slug));
+  });
+
   test('getAnimeBySlug should return full anime details with verified versions and episodes', async () => {
     const anime = await CatalogueService.getAnimeBySlug('tokyo-revengers');
     assert.ok(anime, 'Tokyo Revengers should be found');

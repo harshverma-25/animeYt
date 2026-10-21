@@ -23,6 +23,7 @@ const catalogueCache = new Map<string, CacheEntry<any>>();
 const animeDetailsCache = new Map<string, CacheEntry<any>>();
 const animeEpisodesCache = new Map<string, CacheEntry<any>>();
 const homePageCache = new Map<string, CacheEntry<any>>();
+const inFlightRequests = new Map<string, Promise<any>>();
 const DEFAULT_TTL_MS = 5 * 60 * 1000; // 5 minutes TTL
 
 export class CatalogueService {
@@ -34,6 +35,7 @@ export class CatalogueService {
     animeDetailsCache.clear();
     animeEpisodesCache.clear();
     homePageCache.clear();
+    inFlightRequests.clear();
   }
 
   /**
@@ -66,115 +68,138 @@ export class CatalogueService {
       return cached.data;
     }
 
-    const mongoose = await connectToDatabase();
+    if (inFlightRequests.has(cacheKey)) {
+      return inFlightRequests.get(cacheKey)!;
+    }
 
-    if (!mongoose) {
-      return {
-        items: [],
-        total: 0,
-        page: params.page || 1,
-        totalPages: 0,
-        hasMore: false,
+    const fetchPromise = (async () => {
+      const mongoose = await connectToDatabase();
+
+      if (!mongoose) {
+        return {
+          items: [],
+          total: 0,
+          page: params.page || 1,
+          totalPages: 0,
+          hasMore: false,
+        };
+      }
+
+      const page = Math.max(1, params.page || 1);
+      const limit = Math.max(1, Math.min(params.limit || 20, 100));
+      const skip = (page - 1) * limit;
+
+      const conditions: Record<string, any>[] = [];
+
+      // Text / query search
+      if (params.query && params.query.trim()) {
+        const q = params.query.trim();
+        conditions.push({
+          $or: [
+            { title: { $regex: q, $options: 'i' } },
+            { englishTitle: { $regex: q, $options: 'i' } },
+            { romajiTitle: { $regex: q, $options: 'i' } },
+            { synopsis: { $regex: q, $options: 'i' } },
+            { genres: { $regex: q, $options: 'i' } },
+          ],
+        });
+      }
+
+      // Genre filter
+      if (params.genre && params.genre.toLowerCase() !== 'all') {
+        conditions.push({ genres: { $regex: new RegExp(`^${params.genre}$`, 'i') } });
+      }
+
+      // Verified only filter
+      if (params.verifiedOnly) {
+        conditions.push({ verifiedEpisodeCount: { $gt: 0 } });
+      }
+
+      // Specific IDs or Slugs filter (for batch watchlist retrieval)
+      if (params.ids && params.ids.length > 0) {
+        const validObjectIds = params.ids
+          .filter((id) => mongoose.Types.ObjectId.isValid(id) && id.length === 24)
+          .map((id) => new mongoose.Types.ObjectId(id));
+        const slugs = params.ids.map((id) => id.toLowerCase());
+
+        conditions.push({
+          $or: [
+            ...(validObjectIds.length > 0 ? [{ _id: { $in: validObjectIds } }] : []),
+            { slug: { $in: slugs } },
+          ],
+        });
+      }
+
+      // Audio language filter: query verified versions directly in DB before pagination
+      if (params.audioLanguage && params.audioLanguage.toLowerCase() !== 'all') {
+        const matchingAnimeIds = await AnimeVersion.distinct('anime', {
+          audioLanguage: new RegExp(`^${params.audioLanguage}$`, 'i'),
+          verificationStatus: 'verified',
+        });
+        conditions.push({ _id: { $in: matchingAnimeIds } });
+      }
+
+      const query =
+        conditions.length === 0
+          ? {}
+          : conditions.length === 1
+          ? conditions[0]
+          : { $and: conditions };
+
+      // Sort options
+      let sortObj: Record<string, 1 | -1> = { popularityScore: -1, createdAt: -1 };
+      if (params.sortBy === 'recent') {
+        sortObj = { releaseYear: -1, createdAt: -1 };
+      } else if (params.sortBy === 'title') {
+        sortObj = { title: 1 };
+      } else if (params.sortBy === 'year') {
+        sortObj = { releaseYear: -1 };
+      }
+
+      const [animeDocs, total] = await Promise.all([
+        Anime.find(query).sort(sortObj).skip(skip).limit(limit).lean(),
+        Anime.countDocuments(query),
+      ]);
+
+      // Attach verified audio languages and verified episode count
+      const animeIds = animeDocs.map((a: any) => a._id);
+      const versions = await AnimeVersion.find({
+        anime: { $in: animeIds },
+        verificationStatus: 'verified',
+      }).lean();
+
+      const items = animeDocs.map((anime: any) => {
+        const animeVersions = versions.filter((v: any) => v.anime.toString() === anime._id.toString());
+        const availableAudioLanguages = Array.from(new Set(animeVersions.map((v: any) => v.audioLanguage as string)));
+
+        return {
+          ...anime,
+          id: anime._id.toString(),
+          availableAudioLanguages,
+          totalEpisodes: anime.verifiedEpisodeCount || 0,
+        };
+      });
+
+      const totalPages = Math.ceil(total / limit);
+
+      const result = {
+        items,
+        total,
+        page,
+        totalPages,
+        hasMore: page < totalPages,
       };
+
+      catalogueCache.set(cacheKey, { data: result, expiry: Date.now() + DEFAULT_TTL_MS });
+      return result;
+    })();
+
+    inFlightRequests.set(cacheKey, fetchPromise);
+    try {
+      return await fetchPromise;
+    } finally {
+      inFlightRequests.delete(cacheKey);
     }
-
-    const page = Math.max(1, params.page || 1);
-    const limit = Math.max(1, Math.min(params.limit || 20, 100));
-    const skip = (page - 1) * limit;
-
-    const query: Record<string, any> = {};
-
-    // Text / query search
-    if (params.query && params.query.trim()) {
-      const q = params.query.trim();
-      query.$or = [
-        { title: { $regex: q, $options: 'i' } },
-        { englishTitle: { $regex: q, $options: 'i' } },
-        { romajiTitle: { $regex: q, $options: 'i' } },
-        { synopsis: { $regex: q, $options: 'i' } },
-        { genres: { $regex: q, $options: 'i' } },
-      ];
-    }
-
-    // Genre filter
-    if (params.genre && params.genre.toLowerCase() !== 'all') {
-      query.genres = { $regex: new RegExp(`^${params.genre}$`, 'i') };
-    }
-
-    // Verified only filter
-    if (params.verifiedOnly) {
-      query.verifiedEpisodeCount = { $gt: 0 };
-    }
-
-    // Specific IDs or Slugs filter (for batch watchlist retrieval)
-    if (params.ids && params.ids.length > 0) {
-      const validObjectIds = params.ids
-        .filter((id) => mongoose.Types.ObjectId.isValid(id) && id.length === 24)
-        .map((id) => new mongoose.Types.ObjectId(id));
-      const slugs = params.ids.map((id) => id.toLowerCase());
-
-      query.$or = [
-        ...(validObjectIds.length > 0 ? [{ _id: { $in: validObjectIds } }] : []),
-        { slug: { $in: slugs } },
-      ];
-    }
-
-    // Sort options
-    let sortObj: Record<string, 1 | -1> = { popularityScore: -1, createdAt: -1 };
-    if (params.sortBy === 'recent') {
-      sortObj = { releaseYear: -1, createdAt: -1 };
-    } else if (params.sortBy === 'title') {
-      sortObj = { title: 1 };
-    } else if (params.sortBy === 'year') {
-      sortObj = { releaseYear: -1 };
-    }
-
-    const [animeDocs, total] = await Promise.all([
-      Anime.find(query).sort(sortObj).skip(skip).limit(limit).lean(),
-      Anime.countDocuments(query),
-    ]);
-
-    // Attach verified audio languages and verified episode count
-    const animeIds = animeDocs.map((a: any) => a._id);
-    const versions = await AnimeVersion.find({
-      anime: { $in: animeIds },
-      verificationStatus: 'verified',
-    }).lean();
-
-    const items = animeDocs.map((anime: any) => {
-      const animeVersions = versions.filter((v: any) => v.anime.toString() === anime._id.toString());
-      const availableAudioLanguages = Array.from(new Set(animeVersions.map((v: any) => v.audioLanguage as string)));
-
-      return {
-        ...anime,
-        id: anime._id.toString(),
-        availableAudioLanguages,
-        totalEpisodes: anime.verifiedEpisodeCount || 0,
-      };
-    });
-
-    // If audioLanguage filter requested, filter after population
-    let filteredItems = items;
-    if (params.audioLanguage && params.audioLanguage.toLowerCase() !== 'all') {
-      filteredItems = items.filter((a) =>
-        a.availableAudioLanguages.some(
-          (l: string) => l.toLowerCase() === params.audioLanguage?.toLowerCase()
-        )
-      );
-    }
-
-    const totalPages = Math.ceil(total / limit);
-
-    const result = {
-      items: filteredItems,
-      total,
-      page,
-      totalPages,
-      hasMore: page < totalPages,
-    };
-
-    catalogueCache.set(cacheKey, { data: result, expiry: Date.now() + DEFAULT_TTL_MS });
-    return result;
   }
 
   /**

@@ -35,7 +35,7 @@ export default function TopBar({
     }
   };
 
-  const languages = ['All', 'Hindi', 'English', 'Japanese'];
+  const languages = ['All', 'Hindi', 'English'];
 
   return (
     <header className="flex flex-col md:flex-row items-center justify-between gap-4 mb-7 w-full">

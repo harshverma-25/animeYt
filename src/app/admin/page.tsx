@@ -26,7 +26,7 @@ import {
 export default function AdminPage() {
   const [secretKey, setSecretKey] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [activeTab, setActiveTab] = useState<'episodes' | 'manifest' | 'anilist' | 'candidates' | 'availability' | 'jobs'>('episodes');
+  const [activeTab, setActiveTab] = useState<'episodes' | 'manifest' | 'anilist' | 'candidates' | 'availability' | 'jobs' | 'sources'>('episodes');
 
   // Episodes Management State
   const [episodes, setEpisodes] = useState<any[]>([]);
@@ -95,6 +95,19 @@ export default function AdminPage() {
 
   // Jobs State
   const [jobs, setJobs] = useState<any[]>([]);
+
+  // Sources & Auto-Detection State
+  const [sources, setSources] = useState<any[]>([]);
+  const [sourcesSummary, setSourcesSummary] = useState<any>(null);
+  const [loadingSources, setLoadingSources] = useState(false);
+  const [scanningSources, setScanningSources] = useState(false);
+  const [scanMessage, setScanMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [showAddSource, setShowAddSource] = useState(false);
+  const [newChannelId, setNewChannelId] = useState('');
+  const [newChannelName, setNewChannelName] = useState('');
+  const [newChannelLanguages, setNewChannelLanguages] = useState('Hindi');
+  const [newTrackedSlugs, setNewTrackedSlugs] = useState('');
+  const [newCustomUrl, setNewCustomUrl] = useState('');
 
   // Check saved secret on mount
   useEffect(() => {
@@ -408,6 +421,98 @@ export default function AdminPage() {
     }
   };
 
+  const loadSources = useCallback(async () => {
+    setLoadingSources(true);
+    try {
+      const res = await fetch('/api/admin/sources', { headers: getHeaders() });
+      const data = await res.json();
+      if (data.sources) setSources(data.sources);
+      if (data.summary) setSourcesSummary(data.summary);
+    } catch (err) {
+      console.error('Failed to load sources', err);
+    } finally {
+      setLoadingSources(false);
+    }
+  }, [getHeaders]);
+
+  const handleScanSources = async (sourceId?: string) => {
+    setScanningSources(true);
+    setScanMessage(null);
+    try {
+      const res = await fetch('/api/admin/sources/scan', {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ sourceId }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setScanMessage({
+          type: 'success',
+          text: `Scan complete: ${data.sourcesScanned || 0} sources scanned, ${data.newUploadsDiscovered || 0} uploads discovered, ${data.episodesImported || 0} episodes imported, ${data.duplicatesSkipped || 0} skipped, ${data.itemsAwaitingReview || 0} sent to review.`,
+        });
+        loadSources();
+        loadEpisodes();
+      } else {
+        setScanMessage({ type: 'error', text: data.error || data.reason || 'Scan failed' });
+      }
+    } catch (err: any) {
+      setScanMessage({ type: 'error', text: err.message || 'Scan request failed' });
+    } finally {
+      setScanningSources(false);
+    }
+  };
+
+  const handleToggleSource = async (id: string, currentEnabled: boolean) => {
+    try {
+      const res = await fetch('/api/admin/sources', {
+        method: 'PATCH',
+        headers: getHeaders(),
+        body: JSON.stringify({ id, isEnabled: !currentEnabled }),
+      });
+      if (res.ok) {
+        loadSources();
+      }
+    } catch (err) {
+      console.error('Failed to toggle source', err);
+    }
+  };
+
+  const handleSaveSource = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newChannelId.trim() || !newChannelName.trim()) {
+      alert('Channel ID and Channel Name are required');
+      return;
+    }
+    try {
+      const langs = newChannelLanguages.split(',').map((s) => s.trim()).filter(Boolean);
+      const slugs = newTrackedSlugs.split(',').map((s) => s.trim()).filter(Boolean);
+      const res = await fetch('/api/admin/sources', {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({
+          channelId: newChannelId.trim(),
+          channelName: newChannelName.trim(),
+          customUrl: newCustomUrl.trim() || undefined,
+          languages: langs.length > 0 ? langs : ['Hindi'],
+          trackedAnimeSlugs: slugs,
+        }),
+      });
+      if (res.ok) {
+        setShowAddSource(false);
+        setNewChannelId('');
+        setNewChannelName('');
+        setNewTrackedSlugs('');
+        setNewCustomUrl('');
+        loadSources();
+      } else {
+        const errData = await res.json();
+        alert(errData.error || 'Failed to save source');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to save source');
+    }
+  };
+
   useEffect(() => {
     if (isAuthenticated && activeTab === 'candidates') {
       loadCandidates();
@@ -416,8 +521,10 @@ export default function AdminPage() {
         .then((r) => r.json())
         .then((d) => setJobs(d.jobs || []))
         .catch(() => {});
+    } else if (isAuthenticated && activeTab === 'sources') {
+      loadSources();
     }
-  }, [isAuthenticated, activeTab, candidateFilter]);
+  }, [isAuthenticated, activeTab, candidateFilter, loadSources]);
 
   // 4. Verify Candidate
   const handleVerifyCandidate = async (candidateId: string, slug?: string) => {
@@ -573,6 +680,15 @@ export default function AdminPage() {
             }`}
           >
             Jobs History
+          </button>
+          <button
+            onClick={() => setActiveTab('sources')}
+            className={`px-3.5 py-1.5 rounded-full text-[12.5px] font-semibold transition-all flex items-center gap-1.5 ${
+              activeTab === 'sources' ? 'bg-[#D81B60] text-white' : 'text-white/70 hover:text-white'
+            }`}
+          >
+            <RefreshCw strokeWidth={1.8} className="w-3.5 h-3.5" />
+            Auto-Detection & Sources
           </button>
         </div>
       </div>
@@ -1596,6 +1712,294 @@ export default function AdminPage() {
           ) : (
             <div className="text-center py-8 text-white/50 text-sm">No recorded jobs yet.</div>
           )}
+        </div>
+      )}
+
+      {/* Tab 5: Automatic Episode Detection & Sources */}
+      {activeTab === 'sources' && (
+        <div className="flex flex-col gap-6">
+          {/* Observability Overview */}
+          <div className="glass rounded-[32px] p-6 flex flex-col gap-5">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                  <RefreshCw strokeWidth={1.8} className="w-5 h-5 text-[#FF8FB4]" />
+                  Automatic New Episode Detection & Sources
+                </h2>
+                <p className="text-xs text-white/60 mt-1 max-w-2xl leading-relaxed">
+                  Monitors official distributor Atom syndication feeds every 6 hours without YouTube Data API quota. Confident new episodes are published automatically to the catalogue; ambiguous matches are placed in the review queue.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <button
+                  onClick={() => handleScanSources()}
+                  disabled={scanningSources}
+                  className="btn-primary text-xs px-4 py-2 h-9 gap-1.5"
+                >
+                  <RefreshCw strokeWidth={1.8} className={`w-3.5 h-3.5 ${scanningSources ? 'animate-spin' : ''}`} />
+                  <span>{scanningSources ? 'Scanning Sources...' : 'Scan All Sources Now'}</span>
+                </button>
+
+                <button
+                  onClick={() => setShowAddSource(!showAddSource)}
+                  className="btn-secondary text-xs px-3.5 py-2 h-9 gap-1.5"
+                >
+                  <Plus strokeWidth={1.8} className="w-3.5 h-3.5" />
+                  <span>{showAddSource ? 'Cancel' : 'Add / Associate Source'}</span>
+                </button>
+              </div>
+            </div>
+
+            {scanMessage && (
+              <div
+                className={`p-3.5 rounded-xl text-xs flex items-center gap-2 ${
+                  scanMessage.type === 'success'
+                    ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-300'
+                    : 'bg-rose-500/10 border border-rose-500/30 text-rose-300'
+                }`}
+              >
+                {scanMessage.type === 'success' ? (
+                  <CheckCircle2 strokeWidth={1.8} className="w-4 h-4 shrink-0" />
+                ) : (
+                  <AlertCircle strokeWidth={1.8} className="w-4 h-4 shrink-0" />
+                )}
+                <span>{scanMessage.text}</span>
+              </div>
+            )}
+
+            {/* Metrics Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              <div className="glass rounded-xl p-3 flex flex-col justify-between">
+                <span className="text-[11px] text-white/50 uppercase tracking-wider font-semibold">Last Scan</span>
+                <div className="text-sm font-bold text-white mt-1">
+                  {sourcesSummary?.lastJob?.completedAt
+                    ? new Date(sourcesSummary.lastJob.completedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                    : 'Never'}
+                </div>
+                <span className="text-[10px] text-white/40 mt-0.5">
+                  {sourcesSummary?.lastJob?.status ? `Status: ${sourcesSummary.lastJob.status}` : 'Pending trigger'}
+                </span>
+              </div>
+
+              <div className="glass rounded-xl p-3 flex flex-col justify-between">
+                <span className="text-[11px] text-white/50 uppercase tracking-wider font-semibold">Sources Tracked</span>
+                <div className="text-sm font-bold text-white mt-1">
+                  {sources.filter((s) => s.isEnabled).length} / {sources.length}
+                </div>
+                <span className="text-[10px] text-white/40 mt-0.5">Active channels</span>
+              </div>
+
+              <div className="glass rounded-xl p-3 flex flex-col justify-between">
+                <span className="text-[11px] text-white/50 uppercase tracking-wider font-semibold">Discovered</span>
+                <div className="text-sm font-bold text-white mt-1">
+                  {sourcesSummary?.lastJob?.processedCount || 0}
+                </div>
+                <span className="text-[10px] text-white/40 mt-0.5">Uploads checked</span>
+              </div>
+
+              <div className="glass rounded-xl p-3 flex flex-col justify-between">
+                <span className="text-[11px] text-white/50 uppercase tracking-wider font-semibold">Imported</span>
+                <div className="text-sm font-bold text-emerald-400 mt-1">
+                  {sourcesSummary?.lastJob?.insertedCount || 0}
+                </div>
+                <span className="text-[10px] text-white/40 mt-0.5">New episodes added</span>
+              </div>
+
+              <div className="glass rounded-xl p-3 flex flex-col justify-between">
+                <span className="text-[11px] text-white/50 uppercase tracking-wider font-semibold">Duplicates</span>
+                <div className="text-sm font-bold text-white/80 mt-1">
+                  {sourcesSummary?.lastJob?.skippedCount || 0}
+                </div>
+                <span className="text-[10px] text-white/40 mt-0.5">Already in catalogue</span>
+              </div>
+
+              <div
+                onClick={() => setActiveTab('candidates')}
+                className="glass rounded-xl p-3 flex flex-col justify-between cursor-pointer hover:border-[#FF8FB4]/40 transition-all"
+              >
+                <span className="text-[11px] text-white/50 uppercase tracking-wider font-semibold flex items-center justify-between">
+                  Awaiting Review
+                  <ExternalLink strokeWidth={1.8} className="w-3 h-3 text-[#FF8FB4]" />
+                </span>
+                <div className="text-sm font-bold text-amber-300 mt-1">
+                  {sourcesSummary?.pendingReviewCount || 0}
+                </div>
+                <span className="text-[10px] text-white/40 mt-0.5">Pending approval</span>
+              </div>
+            </div>
+
+            {/* Error summary from last job if failed */}
+            {sourcesSummary?.lastJob?.errorSummary && (
+              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300">
+                <strong className="font-semibold">Recent Scan Error:</strong> {sourcesSummary.lastJob.errorSummary}
+              </div>
+            )}
+          </div>
+
+          {/* Add / Associate Source Form */}
+          {showAddSource && (
+            <form onSubmit={handleSaveSource} className="glass rounded-[32px] p-6 flex flex-col gap-4">
+              <h3 className="text-sm font-bold text-white">Add or Associate Distributor Source</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div>
+                  <label className="text-white/70 block mb-1">YouTube Channel ID *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. UCYYhAzgWuxPauRXdPpLAX3Q"
+                    value={newChannelId}
+                    onChange={(e) => setNewChannelId(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white outline-none focus:border-[#D81B60]"
+                  />
+                </div>
+                <div>
+                  <label className="text-white/70 block mb-1">Distributor Channel Name *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Muse India"
+                    value={newChannelName}
+                    onChange={(e) => setNewChannelName(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white outline-none focus:border-[#D81B60]"
+                  />
+                </div>
+                <div>
+                  <label className="text-white/70 block mb-1">Covered Languages (comma-separated)</label>
+                  <input
+                    type="text"
+                    placeholder="Hindi, English"
+                    value={newChannelLanguages}
+                    onChange={(e) => setNewChannelLanguages(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white outline-none focus:border-[#D81B60]"
+                  />
+                </div>
+                <div>
+                  <label className="text-white/70 block mb-1">Associated Anime Slugs (optional, comma-separated)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. naruto, jujutsu-kaisen, bofuri"
+                    value={newTrackedSlugs}
+                    onChange={(e) => setNewTrackedSlugs(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white outline-none focus:border-[#D81B60]"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="text-white/70 block mb-1">Channel Page URL (optional)</label>
+                  <input
+                    type="text"
+                    placeholder="https://youtube.com/@MuseIndiaChannel"
+                    value={newCustomUrl}
+                    onChange={(e) => setNewCustomUrl(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white outline-none focus:border-[#D81B60]"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 mt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddSource(false)}
+                  className="btn-secondary text-xs px-4 py-2"
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="btn-primary text-xs px-5 py-2">
+                  Save Source Channel
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* Sources Table */}
+          <div className="glass rounded-[32px] p-6 flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-white">Configured Distributor Channels ({sources.length})</h3>
+              {loadingSources && <RefreshCw strokeWidth={1.8} className="w-4 h-4 text-white/50 animate-spin" />}
+            </div>
+
+            <div className="flex flex-col gap-3">
+              {sources.map((src) => (
+                <div
+                  key={src._id}
+                  className="glass rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs"
+                >
+                  <div className="flex flex-col gap-1 max-w-xl">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-bold text-white text-sm">{src.channelName}</span>
+                      <span
+                        className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full ${
+                          src.isEnabled
+                            ? 'bg-emerald-500/20 text-emerald-300'
+                            : 'bg-zinc-500/20 text-zinc-400'
+                        }`}
+                      >
+                        {src.isEnabled ? 'Enabled' : 'Disabled'}
+                      </span>
+                      {src.officialSourceVerificationStatus === 'verified' && (
+                        <span className="text-[10px] bg-sky-500/20 text-sky-300 font-semibold uppercase px-2 py-0.5 rounded-full">
+                          Verified Distributor
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="text-white/50 text-[11px] font-mono flex items-center gap-2 flex-wrap">
+                      <span>ID: {src.channelId}</span>
+                      {src.languages?.length > 0 && (
+                        <span>• Lang: {src.languages.join(', ')}</span>
+                      )}
+                      {src.trackedAnimeSlugs?.length > 0 && (
+                        <span>• Tracked: {src.trackedAnimeSlugs.join(', ')}</span>
+                      )}
+                    </div>
+
+                    {src.feedUrl && (
+                      <div className="text-[11px] text-white/40 truncate">
+                        Feed: <a href={src.feedUrl} target="_blank" rel="noreferrer" className="text-sky-400 hover:underline">{src.feedUrl}</a>
+                      </div>
+                    )}
+
+                    {src.lastError && (
+                      <div className="text-[11px] text-rose-400 bg-rose-500/10 px-2.5 py-1 rounded-lg mt-1">
+                        Last Error: {src.lastError}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-3 shrink-0 self-end md:self-auto">
+                    <div className="text-right text-[11px] text-white/50 hidden sm:block">
+                      <div>Last Check:</div>
+                      <div className="text-white/80">
+                        {src.lastSuccessfulCheckAt
+                          ? new Date(src.lastSuccessfulCheckAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })
+                          : 'Never'}
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => handleScanSources(src._id)}
+                      disabled={scanningSources}
+                      className="btn-secondary text-xs px-3 py-1.5 h-8 gap-1"
+                      title="Scan this channel feed now"
+                    >
+                      <RefreshCw strokeWidth={1.8} className="w-3 h-3" />
+                      <span>Scan Feed</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleToggleSource(src._id, src.isEnabled)}
+                      className={`text-xs px-3 py-1.5 h-8 rounded-full font-medium transition-all ${
+                        src.isEnabled
+                          ? 'bg-rose-500/20 text-rose-300 hover:bg-rose-500/30'
+                          : 'bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30'
+                      }`}
+                    >
+                      {src.isEnabled ? 'Disable' : 'Enable'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       )}
     </div>

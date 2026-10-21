@@ -23,7 +23,7 @@ const YouTubeCandidateSchema = new Schema<YouTubeCandidateDocument>(
     claimedLanguage: { type: String, default: 'Japanese' },
     discoveryMethod: {
       type: String,
-      enum: ['channel_playlist', 'channel_search', 'targeted_search', 'manual'],
+      enum: ['channel_playlist', 'channel_search', 'targeted_search', 'manual', 'atom_feed'],
       default: 'channel_playlist',
     },
     verificationStatus: {

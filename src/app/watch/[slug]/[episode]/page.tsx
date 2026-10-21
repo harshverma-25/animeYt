@@ -81,11 +81,12 @@ export default function WatchEpisodePage() {
       v.episodes?.some((e: any) => e.youtubeVideoId === activeEpisode?.youtubeVideoId)
     ) || allVersions[0];
 
-  const currentIndex = allEpisodes.findIndex(
+  const versionEpisodes: any[] = currentVersion?.episodes || [];
+  const currentIndex = versionEpisodes.findIndex(
     (e: any) => e.youtubeVideoId === activeEpisode?.youtubeVideoId
   );
-  const prevEp = currentIndex > 0 ? allEpisodes[currentIndex - 1] : null;
-  const nextEp = currentIndex < allEpisodes.length - 1 ? allEpisodes[currentIndex + 1] : null;
+  const prevEp = currentIndex > 0 ? versionEpisodes[currentIndex - 1] : null;
+  const nextEp = currentIndex >= 0 && currentIndex < versionEpisodes.length - 1 ? versionEpisodes[currentIndex + 1] : null;
 
   const handleCopyLink = () => {
     if (typeof window !== 'undefined') {

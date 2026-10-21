@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "tsx --env-file=.env --test --test-concurrency=1 tests/**/*.test.ts",
     "import:anilist": "tsx --env-file=.env scripts/importAniList.ts",
-    "discover:youtube": "tsx --env-file=.env scripts/discoverYouTube.ts"
+    "discover:youtube": "tsx --env-file=.env scripts/discoverYouTube.ts",
+    "import:all": "tsx --env-file=.env scripts/bulkImportAllAnime.ts"
   },
   "dependencies": {
     "lucide-react": "^1.60.0",

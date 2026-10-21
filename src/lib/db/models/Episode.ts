@@ -14,6 +14,7 @@ const EpisodeSchema = new Schema<EpisodeDocument>(
     episodeNumber: { type: Number, required: true },
     title: { type: String, required: true },
     youtubeVideoId: { type: String, required: true, index: true },
+    videoUrl: { type: String },
     playlistId: { type: String },
     publicationDate: { type: Date },
     verificationStatus: {
@@ -42,6 +43,7 @@ const EpisodeSchema = new Schema<EpisodeDocument>(
 // Unique compound index so an episode for a version is distinct
 EpisodeSchema.index({ version: 1, seasonNumber: 1, episodeNumber: 1 }, { unique: true });
 EpisodeSchema.index({ anime: 1, isPublished: 1, verificationStatus: 1 });
+EpisodeSchema.index({ anime: 1, version: 1, isPublished: 1, seasonNumber: 1, episodeNumber: 1 });
 
 export const Episode: Model<EpisodeDocument> =
   mongoose.models.Episode || mongoose.model<EpisodeDocument>('Episode', EpisodeSchema);

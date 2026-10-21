@@ -43,6 +43,14 @@ export interface ISourceChannel {
   officialSourceVerificationStatus: 'verified' | 'pending' | 'rejected';
   isEnabled: boolean;
   customUrl?: string;
+  sourceUrl?: string;
+  feedUrl?: string;
+  trackedAnimeSlugs?: string[];
+  languages?: string[];
+  playlistIds?: string[];
+  lastSuccessfulCheckAt?: string | Date;
+  lastAttemptedCheckAt?: string | Date;
+  lastError?: string;
   description?: string;
   lastImportAt?: string | Date;
   createdAt?: string | Date;
@@ -75,6 +83,7 @@ export interface IEpisode {
   episodeNumber: number;
   title: string;
   youtubeVideoId: string;
+  videoUrl?: string;
   playlistId?: string;
   publicationDate?: string | Date;
   verificationStatus: VerificationStatus;
@@ -109,7 +118,7 @@ export interface IYouTubeCandidate {
   candidateEpisodeNumber?: number;
   candidateSeasonNumber?: number;
   claimedLanguage: string;
-  discoveryMethod: 'channel_playlist' | 'channel_search' | 'targeted_search' | 'manual';
+  discoveryMethod: 'channel_playlist' | 'channel_search' | 'targeted_search' | 'manual' | 'atom_feed';
   verificationStatus: VerificationStatus;
   reviewerNotes?: string;
   reviewedBy?: string;

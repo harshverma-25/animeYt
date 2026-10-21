@@ -9,7 +9,7 @@ interface LanguageFilterProps {
 export default function LanguageFilter({
   selectedLanguage,
   onSelectLanguage,
-  availableLanguages = ['All', 'Hindi', 'English', 'Japanese'],
+  availableLanguages = ['All', 'Hindi', 'English'],
 }: LanguageFilterProps) {
   const options = Array.from(new Set(['All', ...availableLanguages]));
 

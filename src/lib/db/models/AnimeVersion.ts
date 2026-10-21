@@ -30,6 +30,7 @@ const AnimeVersionSchema = new Schema<AnimeVersionDocument>(
 );
 
 AnimeVersionSchema.index({ anime: 1, audioLanguage: 1 });
+AnimeVersionSchema.index({ audioLanguage: 1, verificationStatus: 1 });
 
 export const AnimeVersion: Model<AnimeVersionDocument> =
   mongoose.models.AnimeVersion ||

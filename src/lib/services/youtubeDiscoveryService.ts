@@ -114,6 +114,9 @@ export class YouTubeDiscoveryService {
           $set: {
             channelName: ch.channelName,
             customUrl: ch.customUrl,
+            sourceUrl: ch.customUrl,
+            feedUrl: `https://www.youtube.com/feeds/videos.xml?channel_id=${ch.channelId}`,
+            languages: ch.defaultLanguage ? [ch.defaultLanguage] : [],
             officialSourceVerificationStatus: 'verified',
             isEnabled: true,
           },
