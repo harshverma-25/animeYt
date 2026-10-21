@@ -15,6 +15,14 @@ export const metadata: Metadata = {
   title: 'AnimeYT — Official YouTube Anime Streaming Catalogue',
   description:
     'Discover and watch anime officially published on YouTube through official embeds only. Powered by Muse Asia, Muse India, and Ani-One Asia.',
+  icons: {
+    icon: [
+      { url: '/icon.svg', type: 'image/svg+xml' },
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+    ],
+    shortcut: '/icon.svg',
+    apple: '/icon.svg',
+  },
   keywords: [
     'Anime',
     'AnimeYT',

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="animeyt-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FF3377" />
+      <stop offset="100%" stop-color="#D81B60" />
+    </linearGradient>
+  </defs>
+  <!-- Rounded Squircle / App Icon Background -->
+  <rect width="512" height="512" rx="144" fill="url(#animeyt-grad)" />
+  
+  <!-- Smooth Centered Play Icon -->
+  <path
+    d="M 212 170 C 212 153.2 230.3 142.8 244.8 151.3 L 357.2 237.3 C 371.6 245.7 371.6 266.3 357.2 274.7 L 244.8 360.7 C 230.3 369.2 212 358.8 212 342 Z"
+    fill="#FFFFFF"
+  />
+</svg>
