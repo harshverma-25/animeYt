@@ -81,21 +81,21 @@ export default function Hero({ featuredAnime }: HeroProps) {
 
         {/* Buttons and Carousel Controls */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-1">
-          {/* Action buttons (compact height) */}
-          <div className="flex items-center gap-3 flex-wrap">
+          {/* Action buttons (responsive on mobile) */}
+          <div className="flex items-center gap-2.5 sm:gap-3 w-full sm:w-auto">
             {verifiedCount > 0 ? (
               <Link
                 href={watchHref}
-                className="btn-primary gap-2 text-[14px] px-6 h-[46px]"
-                aria-label={`Watch ${anime.title} on YouTube`}
+                className="btn-primary gap-2 text-[14px] px-5 sm:px-6 h-[44px] sm:h-[46px] flex-1 sm:flex-initial justify-center"
+                aria-label={`Watch ${anime.title}`}
               >
                 <Play strokeWidth={2} className="w-4 h-4 fill-white" />
-                <span>Watch on YouTube</span>
+                <span>Watch</span>
               </Link>
             ) : (
               <Link
                 href={`/anime/${anime.slug}`}
-                className="btn-primary gap-2 text-[14px] px-6 h-[46px]"
+                className="btn-primary gap-2 text-[14px] px-5 sm:px-6 h-[44px] sm:h-[46px] flex-1 sm:flex-initial justify-center"
               >
                 <span>View Details</span>
               </Link>
@@ -103,7 +103,7 @@ export default function Hero({ featuredAnime }: HeroProps) {
 
             <Link
               href={`/anime/${anime.slug}`}
-              className="btn-secondary text-[14px] px-5 h-[46px]"
+              className="btn-secondary text-[14px] px-4 sm:px-5 h-[44px] sm:h-[46px] flex-1 sm:flex-initial justify-center text-center"
               aria-label={`View details for ${anime.title}`}
             >
               <span>Explore Info</span>

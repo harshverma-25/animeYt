@@ -164,14 +164,14 @@ export default function AnimeDetailsPage() {
           </div>
 
           {/* Action CTA Buttons */}
-          <div className="flex items-center gap-3.5 flex-wrap pt-2">
+          <div className="flex items-center gap-3 sm:gap-3.5 flex-wrap pt-2 w-full sm:w-auto">
             {firstEpisode ? (
               <Link
                 href={`/watch/${anime.slug}/${firstEpisode.id || firstEpisode.youtubeVideoId}`}
-                className="btn-primary gap-2.5 text-[15px] px-8"
+                className="btn-primary gap-2.5 text-[15px] px-7 sm:px-8 h-[46px] flex-1 sm:flex-initial justify-center"
               >
                 <Play strokeWidth={2} className="w-5 h-5 fill-white" />
-                <span>Watch on YouTube</span>
+                <span>Watch</span>
               </Link>
             ) : (
               <div className="glass-chip inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-[13px] text-white/60">

@@ -60,11 +60,20 @@ export default function Sidebar() {
         </button>
       </div>
 
+      {/* Mobile Backdrop Overlay */}
+      {isMobileOpen && (
+        <div
+          onClick={() => setIsMobileOpen(false)}
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-25 lg:hidden animate-in fade-in duration-200"
+          aria-hidden="true"
+        />
+      )}
+
       {/* Main Glass Sidebar: width 240px, radius 36px, padding 22px */}
       <aside
         className={`glass rounded-[36px] p-[22px] w-[240px] shrink-0 flex flex-col justify-between self-start transition-all duration-300 z-30 ${
           isMobileOpen
-            ? 'fixed inset-x-4 top-20 bottom-6 w-auto overflow-y-auto block lg:static lg:w-[240px]'
+            ? 'fixed inset-x-4 top-20 bottom-6 w-auto overflow-y-auto block shadow-2xl border border-white/25 lg:static lg:w-[240px]'
             : 'hidden lg:flex'
         }`}
         style={{ minHeight: 'calc(100vh - 56px)' }}
