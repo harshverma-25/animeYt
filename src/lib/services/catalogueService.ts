@@ -14,7 +14,28 @@ import {
   VerificationStatus,
 } from '@/types/anime';
 
+interface CacheEntry<T> {
+  data: T;
+  expiry: number;
+}
+
+const catalogueCache = new Map<string, CacheEntry<any>>();
+const animeDetailsCache = new Map<string, CacheEntry<any>>();
+const animeEpisodesCache = new Map<string, CacheEntry<any>>();
+const homePageCache = new Map<string, CacheEntry<any>>();
+const DEFAULT_TTL_MS = 5 * 60 * 1000; // 5 minutes TTL
+
 export class CatalogueService {
+  /**
+   * Clear in-memory catalogue, episode, and detail caches
+   */
+  static clearCache(): void {
+    catalogueCache.clear();
+    animeDetailsCache.clear();
+    animeEpisodesCache.clear();
+    homePageCache.clear();
+  }
+
   /**
    * Retrieve list of unique available genres across the catalogue
    */
@@ -39,6 +60,12 @@ export class CatalogueService {
    * Search and filter anime from MongoDB
    */
   static async getCatalogue(params: CatalogueQueryParams = {}): Promise<PaginatedResult<IAnime & { availableAudioLanguages: string[]; totalEpisodes: number }>> {
+    const cacheKey = JSON.stringify(params || {});
+    const cached = catalogueCache.get(cacheKey);
+    if (cached && cached.expiry > Date.now()) {
+      return cached.data;
+    }
+
     const mongoose = await connectToDatabase();
 
     if (!mongoose) {
@@ -125,19 +152,28 @@ export class CatalogueService {
 
     const totalPages = Math.ceil(total / limit);
 
-    return {
+    const result = {
       items: filteredItems,
       total,
       page,
       totalPages,
       hasMore: page < totalPages,
     };
+
+    catalogueCache.set(cacheKey, { data: result, expiry: Date.now() + DEFAULT_TTL_MS });
+    return result;
   }
 
   /**
    * Get single anime details by slug or ID with ONLY verified published episodes
    */
   static async getAnimeBySlug(slugOrId: string): Promise<AnimeWithDetails | null> {
+    const cacheKey = slugOrId.toLowerCase();
+    const cached = animeDetailsCache.get(cacheKey);
+    if (cached && cached.expiry > Date.now()) {
+      return cached.data;
+    }
+
     const mongoose = await connectToDatabase();
     if (!mongoose) return null;
 
@@ -185,13 +221,15 @@ export class CatalogueService {
       new Set(versionsWithEpisodes.map((v) => v.audioLanguage as string))
     );
 
-    return {
+    const result = {
       ...anime,
       id: anime._id.toString(),
       versions: versionsWithEpisodes,
       availableAudioLanguages,
       totalEpisodes: episodes.length,
     };
+    animeDetailsCache.set(cacheKey, { data: result, expiry: Date.now() + DEFAULT_TTL_MS });
+    return result;
   }
 
   /**
@@ -201,6 +239,12 @@ export class CatalogueService {
     slugOrId: string,
     options: { audioLanguage?: string; seasonNumber?: number } = {}
   ): Promise<any[]> {
+    const cacheKey = `${slugOrId.toLowerCase()}_${JSON.stringify(options || {})}`;
+    const cached = animeEpisodesCache.get(cacheKey);
+    if (cached && cached.expiry > Date.now()) {
+      return cached.data;
+    }
+
     const mongoose = await connectToDatabase();
     if (!mongoose) return [];
 
@@ -243,7 +287,7 @@ export class CatalogueService {
       .sort({ seasonNumber: 1, episodeNumber: 1 })
       .lean();
 
-    return episodes.map((ep) => {
+    const result = episodes.map((ep) => {
       const ver = versions.find((v) => v._id.toString() === ep.version.toString());
       return {
         id: ep._id.toString(),
@@ -263,6 +307,9 @@ export class CatalogueService {
         verificationStatus: ep.verificationStatus,
       };
     });
+
+    animeEpisodesCache.set(cacheKey, { data: result, expiry: Date.now() + DEFAULT_TTL_MS });
+    return result;
   }
 
   /**
@@ -273,6 +320,12 @@ export class CatalogueService {
     popular: (IAnime & { availableAudioLanguages: string[]; totalEpisodes: number })[];
     recentlyAdded: (IAnime & { availableAudioLanguages: string[]; totalEpisodes: number })[];
   }> {
+    const cacheKey = 'home_page_data';
+    const cached = homePageCache.get(cacheKey);
+    if (cached && cached.expiry > Date.now()) {
+      return cached.data;
+    }
+
     const mongoose = await connectToDatabase();
     if (!mongoose) {
       return { featured: [], popular: [], recentlyAdded: [] };
@@ -316,11 +369,14 @@ export class CatalogueService {
         };
       });
 
-    return {
+    const result = {
       featured: mapAnime(featuredDocs.length > 0 ? featuredDocs : popularDocs.slice(0, 1)),
       popular: mapAnime(popularDocs),
       recentlyAdded: mapAnime(recentDocs),
     };
+
+    homePageCache.set(cacheKey, { data: result, expiry: Date.now() + DEFAULT_TTL_MS });
+    return result;
   }
 
   /**
@@ -328,6 +384,7 @@ export class CatalogueService {
    */
   static async upsertAnime(data: Partial<IAnime> & { [key: string]: any }): Promise<any> {
     await connectToDatabase();
+    this.clearCache();
     const slug = data.slug || (data.title ? data.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') : undefined);
     
     if (data.id || data._id) {
@@ -457,6 +514,7 @@ export class CatalogueService {
       await Anime.updateOne({ _id: data.animeId }, { $set: { verifiedEpisodeCount: count } });
     }
 
+    this.clearCache();
     return ep;
   }
 
@@ -469,6 +527,7 @@ export class CatalogueService {
     status: 'verified' | 'unverified' | 'unavailable' | 'rejected'
   ): Promise<boolean> {
     await connectToDatabase();
+    this.clearCache();
     if (entityType === 'episode') {
       const isPublished = status === 'verified';
       const updated = await Episode.findByIdAndUpdate(id, {

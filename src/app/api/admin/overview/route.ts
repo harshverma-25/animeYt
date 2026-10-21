@@ -14,6 +14,7 @@ export async function GET(req: NextRequest) {
       success: true,
       data,
       youtubeConfigured: YouTubeService.isConfigured(),
+      youtubeDataApiKeyPresent: YouTubeService.hasDataApiKey(),
     });
   } catch (error) {
     return NextResponse.json(

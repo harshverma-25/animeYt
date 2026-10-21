@@ -5,6 +5,7 @@ import { Episode } from '@/lib/db/models/Episode';
 import { YouTubeCandidate } from '@/lib/db/models/YouTubeCandidate';
 import { SourceChannel } from '@/lib/db/models/SourceChannel';
 import { OFFICIAL_CHANNELS } from './youtubeDiscoveryService';
+import { CatalogueService } from './catalogueService';
 
 export interface VerifyCandidatePayload {
   candidateId: string;
@@ -170,6 +171,7 @@ export class VerificationService {
 
     anime.verifiedEpisodeCount = verifiedCount;
     await anime.save();
+    CatalogueService.clearCache();
 
     return {
       success: true,
@@ -246,6 +248,8 @@ export class VerificationService {
       });
       await Anime.updateOne({ _id: ep.anime }, { $set: { verifiedEpisodeCount: count } });
     }
+
+    CatalogueService.clearCache();
 
     return {
       checkedCount: episodes.length,

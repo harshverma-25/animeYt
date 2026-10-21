@@ -37,16 +37,69 @@ interface CacheEntry<T> {
 const responseCache = new Map<string, CacheEntry<unknown>>();
 const CACHE_TTL_MS = 1000 * 60 * 30; // 30 minutes cache
 
+import {
+  extractYouTubeVideoId,
+  normalizeYouTubeUrl,
+  extractPlaylistId,
+  fetchYouTubeOEmbed,
+  verifyVideoAvailability,
+  YouTubeOEmbedMetadata,
+  VideoVerificationResult,
+} from '@/lib/utils/youtubeUtils';
+
 export class YouTubeService {
   private static getApiKey(): string | null {
     return process.env.YOUTUBE_API_KEY || null;
   }
 
   /**
-   * Check if YouTube API is configured
+   * Check if YouTube integration is configured.
+   * AnimeYT operates without the YouTube Data API key via public oEmbed and batch management.
    */
   static isConfigured(): boolean {
+    return true;
+  }
+
+  /**
+   * Check if optional legacy YouTube Data API v3 key is provided
+   */
+  static hasDataApiKey(): boolean {
     return !!this.getApiKey();
+  }
+
+  /**
+   * Extract 11-char YouTube Video ID from any URL format or raw ID
+   */
+  static extractVideoId(input: string): string | null {
+    return extractYouTubeVideoId(input);
+  }
+
+  /**
+   * Normalize any YouTube URL or ID to standard watch URL
+   */
+  static normalizeUrl(input: string): string | null {
+    return normalizeYouTubeUrl(input);
+  }
+
+  /**
+   * Extract playlist ID if provided
+   */
+  static extractPlaylistId(input: string): string | null {
+    return extractPlaylistId(input);
+  }
+
+  /**
+   * Fetch official video metadata without API key via public oEmbed
+   */
+  static async fetchOEmbed(videoIdOrUrl: string): Promise<YouTubeOEmbedMetadata | null> {
+    return fetchYouTubeOEmbed(videoIdOrUrl);
+  }
+
+  /**
+   * Check video playback/embed availability and status
+   */
+  static async verifyAvailability(videoIdOrUrl: string): Promise<VideoVerificationResult> {
+    return verifyVideoAvailability(videoIdOrUrl);
   }
 
   /**

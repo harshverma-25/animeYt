@@ -54,10 +54,12 @@ cp .env.example .env
 
 | Variable | Description | Default / Example |
 | :--- | :--- | :--- |
-| `MONGODB_URI` | MongoDB connection URI | `mongodb+srv://user:pass@cluster.mongodb.net/animeyt` |
-| `YOUTUBE_API_KEY` | Google YouTube Data API v3 key | `AIzaSy...` |
+| `MONGODB_URI` | MongoDB connection URI (Required) | `mongodb+srv://user:pass@cluster.mongodb.net/animeyt` |
 | `ADMIN_SECRET_KEY` | Admin authorization secret key | `animeyt-admin-dev-key` |
 | `NEXT_PUBLIC_APP_URL` | Base application URL | `http://localhost:3000` |
+| `YOUTUBE_API_KEY` | Google YouTube Data API v3 key (Optional / Legacy only) | `AIzaSy...` (Optional) |
+
+> **Zero-API Operation**: AnimeYT does not require a `YOUTUBE_API_KEY`. All catalogue browsing, language filtering, episode playback, admin episode management, and batch playlist/video imports run with 100% independence from YouTube API quotas using MongoDB and authorized public oEmbed endpoints.
 
 ---
 
