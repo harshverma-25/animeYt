@@ -1,80 +1,219 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --color-bg-base: #0D0D12;
-  --color-sidebar: #111117;
-  --color-surface: #17171F;
-  --color-surface-elevated: #202029;
-  --color-surface-card: #16161F;
-  --color-surface-hover: #22222E;
-  --color-border-subtle: #262633;
-  --color-border-card: #282835;
-  --color-border-hover: #383848;
-  --color-text-primary: #F5F5F7;
-  --color-text-secondary: #A1A1B0;
-  --color-text-muted: #686878;
-  --color-accent: #FF3D69;
-  --color-accent-hover: #FF5A81;
-  --color-accent-soft: rgba(255, 61, 105, 0.12);
-  --color-accent-active: #381622;
+  --font-outfit: 'Outfit', sans-serif;
+  --color-base: #0F0B1A;
+  --color-accent: #D81B60;
+  --color-accent-text: #FF8FB4;
+  --color-tag-pink: #FFC2D6;
+  --color-text-primary: #FFFFFF;
+  --color-text-secondary: rgba(255, 255, 255, 0.72);
+  --color-text-muted: rgba(255, 255, 255, 0.62);
+
+  --radius-sidebar: 36px;
+  --radius-hero: 44px;
+  --radius-cards: 32px;
+  --radius-poster: 24px;
+  --radius-panels: 30px;
 }
 
 :root {
-  --background: #0D0D12;
-  --foreground: #F5F5F7;
+  --background: #0F0B1A;
+  --foreground: #FFFFFF;
+}
+
+* {
+  box-sizing: border-box;
 }
 
 body {
-  background-color: #0D0D12;
-  color: #F5F5F7;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background-color: #0F0B1A;
+  color: #FFFFFF;
+  font-family: var(--font-outfit), 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   min-height: 100vh;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Glassmorphism helpers */
-.glass-panel {
-  background-color: rgba(22, 22, 31, 0.85);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+/* Base Glassmorphism Spec */
+.glass {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.04));
+  backdrop-filter: blur(24px) saturate(140%);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 24px 60px rgba(8, 4, 20, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.22);
 }
 
-.glass-card {
-  background-color: rgba(22, 22, 31, 0.9);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid #282835;
+.glass-large {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.04));
+  backdrop-filter: blur(28px) saturate(140%);
+  -webkit-backdrop-filter: blur(28px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 28px 70px rgba(8, 4, 20, 0.52), inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
 
-.glass-card:hover {
-  border-color: rgba(255, 61, 105, 0.5);
-  box-shadow: 0 8px 24px -4px rgba(255, 61, 105, 0.08);
+.glass-chip {
+  background: rgba(20, 12, 40, 0.50);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.25);
 }
 
-.glass-search {
-  background-color: rgba(22, 22, 31, 0.85);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid #282836;
+/* Ambient Glow Orbs behind everything */
+.ambient-orb {
+  position: fixed;
+  border-radius: 9999px;
+  pointer-events: none;
+  z-index: 0;
+  mix-blend-mode: screen;
 }
 
-/* Custom scrollbars */
+.orb-pink {
+  width: 620px;
+  height: 620px;
+  background: rgba(255, 60, 130, 0.50);
+  filter: blur(100px);
+  top: -120px;
+  right: -120px;
+}
+
+.orb-violet {
+  width: 520px;
+  height: 520px;
+  background: rgba(124, 77, 255, 0.50);
+  filter: blur(100px);
+  top: 35%;
+  left: -150px;
+}
+
+.orb-teal {
+  width: 560px;
+  height: 560px;
+  background: rgba(40, 190, 200, 0.32);
+  filter: blur(110px);
+  bottom: 8%;
+  right: -100px;
+}
+
+.orb-orange {
+  width: 560px;
+  height: 560px;
+  background: rgba(255, 120, 80, 0.30);
+  filter: blur(110px);
+  bottom: -150px;
+  left: 10%;
+}
+
+/* Primary Button Spec */
+.btn-primary {
+  height: 54px;
+  border-radius: 9999px;
+  background-color: #D81B60;
+  color: #FFFFFF;
+  font-weight: 600;
+  box-shadow: 0 12px 30px rgba(255, 60, 130, 0.45);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 28px;
+  transition: all 0.2s ease;
+  min-height: 44px;
+}
+
+.btn-primary:hover {
+  background-color: #E82970;
+  box-shadow: 0 16px 36px rgba(255, 60, 130, 0.60);
+  transform: translateY(-2px);
+}
+
+/* Secondary Button Spec */
+.btn-secondary {
+  height: 54px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.10);
+  color: #FFFFFF;
+  font-weight: 600;
+  border: 1px solid rgba(255, 255, 255, 0.26);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 28px;
+  transition: all 0.2s ease;
+  min-height: 44px;
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.38);
+  transform: translateY(-2px);
+}
+
+/* Language Tags Spec */
+.tag-hindi {
+  background: rgba(255, 77, 141, 0.22);
+  color: #FFC2D6;
+  border: 1px solid rgba(255, 130, 175, 0.50);
+}
+
+.tag-other {
+  background: rgba(255, 255, 255, 0.10);
+  color: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+/* Anime Card Hover Spec */
+.anime-card-hover {
+  transition: transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease;
+}
+
+.anime-card-hover:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 28px 65px rgba(216, 27, 96, 0.25), 0 16px 40px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  border-color: rgba(255, 255, 255, 0.32);
+}
+
+/* Focus styles */
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px #FF8FB4 !important;
+}
+
+/* Non-backdrop-filter CSS Fallback */
+@supports not (backdrop-filter: blur(24px)) {
+  .glass, .glass-large, .glass-chip, .btn-secondary {
+    background: rgba(30, 22, 48, 0.88) !important;
+  }
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Custom subtle scrollbars */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #0D0D12;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #282835;
-  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #383848;
+  background: rgba(255, 255, 255, 0.32);
 }

@@ -1,29 +1,35 @@
 import type { Metadata } from 'next';
+import { Outfit } from 'next/font/google';
 import { Suspense } from 'react';
 import './globals.css';
 import AppShell from '@/components/AppShell';
 
+const outfit = Outfit({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700', '800'],
+  variable: '--font-outfit',
+  display: 'swap',
+});
+
 export const metadata: Metadata = {
-  title: 'AnimeYT — Discover & Watch Official Anime on YouTube',
+  title: 'AnimeYT — Official YouTube Anime Streaming Catalogue',
   description:
-    'Discover legally published anime episodes on YouTube with verified audio dubs in Hindi, English, and Japanese from official licensed distributors.',
+    'Discover and watch anime officially published on YouTube through official embeds only. Powered by Muse Asia, Muse India, and Ani-One Asia.',
   keywords: [
     'Anime',
-    'Watch Anime',
+    'AnimeYT',
     'YouTube Anime',
     'Hindi Anime Dub',
-    'Official Anime',
+    'Japanese Anime',
     'Muse Asia',
     'Muse India',
     'Ani-One Asia',
-    'Demon Slayer',
-    'Jujutsu Kaisen',
+    'Official Anime',
   ],
-  authors: [{ name: 'AnimeYT Team' }],
+  authors: [{ name: 'AnimeYT' }],
   openGraph: {
-    title: 'AnimeYT — Official YouTube Anime Discovery',
-    description:
-      'Watch officially licensed full anime episodes legally streamed on YouTube.',
+    title: 'AnimeYT — Official YouTube Anime Catalogue',
+    description: 'Discover legally published anime streamed via official YouTube embeds.',
     type: 'website',
   },
 };
@@ -34,9 +40,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark h-full">
-      <body className="min-h-screen bg-[#0D0D12] text-[#F5F5F7] antialiased">
-        <Suspense fallback={<div className="min-h-screen bg-[#0D0D12]" />}>
+    <html lang="en" className={`dark ${outfit.variable}`}>
+      <body className="min-h-screen bg-[#0F0B1A] text-white antialiased font-sans selection:bg-[#D81B60] selection:text-white">
+        <Suspense fallback={<div className="min-h-screen bg-[#0F0B1A]" />}>
           <AppShell>{children}</AppShell>
         </Suspense>
       </body>
