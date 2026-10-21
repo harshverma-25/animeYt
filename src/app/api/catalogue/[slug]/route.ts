@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { CatalogueService } from '@/lib/services/catalogueService';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(
-  req: NextRequest,
-  { params }: { params: Promise<{ slug: string }> }
+  _req: NextRequest,
+  { params }: { params: Promise<{ slug?: string; id?: string }> }
 ) {
   try {
-    const { slug } = await params;
+    const resolvedParams = await params;
+    const slug = resolvedParams.slug || resolvedParams.id;
     if (!slug) {
-      return NextResponse.json({ error: 'Slug parameter is required' }, { status: 400 });
+      return NextResponse.json({ error: 'Slug or ID is required' }, { status: 400 });
     }
 
     const anime = await CatalogueService.getAnimeBySlug(slug);
@@ -16,15 +19,9 @@ export async function GET(
       return NextResponse.json({ error: 'Anime not found' }, { status: 404 });
     }
 
-    return NextResponse.json({
-      success: true,
-      data: anime,
-    });
-  } catch (error) {
-    console.error('API /api/catalogue/[slug] error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch anime details', message: (error as Error).message },
-      { status: 500 }
-    );
+    return NextResponse.json(anime);
+  } catch (err) {
+    console.error('API /api/catalogue/[slug] error:', err);
+    return NextResponse.json({ error: 'Failed to fetch anime details' }, { status: 500 });
   }
 }

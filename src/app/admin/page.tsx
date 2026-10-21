@@ -1,555 +1,561 @@
 'use client';
-
-import { useState, useEffect, useCallback } from 'react';
-import { IAnime, IAnimeVersion, IEpisode, ISourceChannel, VerificationStatus } from '@/types/anime';
+import React, { useState, useEffect } from 'react';
 import {
-  ShieldCheck,
-  Lock,
-  RefreshCw,
-  CheckCircle,
-  AlertTriangle,
+  ShieldAlert,
+  Sparkles,
   Video,
-  Database,
+  CheckCircle,
+  XCircle,
   ExternalLink,
-  Loader2,
-  Film,
+  RefreshCw,
+  Search,
+  List,
+  Check,
 } from 'lucide-react';
 
 export default function AdminPage() {
-  const [adminKey, setAdminKey] = useState('');
+  const [secretKey, setSecretKey] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
+  const [activeTab, setActiveTab] = useState<'anilist' | 'candidates' | 'availability' | 'jobs'>('anilist');
 
-  const [animeList, setAnimeList] = useState<IAnime[]>([]);
-  const [versions, setVersions] = useState<IAnimeVersion[]>([]);
-  const [episodes, setEpisodes] = useState<IEpisode[]>([]);
-  const [_channels, setChannels] = useState<ISourceChannel[]>([]);
-  const [youtubeConfigured, setYoutubeConfigured] = useState(false);
+  // AniList Import State
+  const [anilistPages, setAnilistPages] = useState(2);
+  const [anilistSearch, setAnilistSearch] = useState('');
+  const [importingAniList, setImportingAniList] = useState(false);
+  const [anilistResult, setAnilistResult] = useState<any>(null);
 
-  const [activeTab, setActiveTab] = useState<'review' | 'import' | 'addAnime'>('review');
+  // YouTube Discovery State
+  const [discoverQuery, setDiscoverQuery] = useState('');
+  const [targetSlug, setTargetSlug] = useState('');
+  const [discovering, setDiscovering] = useState(false);
+  const [discoverResult, setDiscoverResult] = useState<any>(null);
 
-  const [newAnime, setNewAnime] = useState({
-    title: '',
-    synopsis: '',
-    poster: '',
-    genres: 'Action, Fantasy',
-    releaseYear: 2024,
-    status: 'Ongoing',
-  });
+  // Candidate Review State
+  const [candidates, setCandidates] = useState<any[]>([]);
+  const [candidateFilter, setCandidateFilter] = useState('discovered');
+  const [loadingCandidates, setLoadingCandidates] = useState(false);
 
-  const [importForm, setImportForm] = useState({
-    type: 'playlist',
-    targetId: '',
-    animeId: '',
-    versionId: '',
-  });
+  // Availability Check State
+  const [checkingAvailability, setCheckingAvailability] = useState(false);
+  const [availabilityResult, setAvailabilityResult] = useState<any>(null);
 
-  const loadOverview = useCallback(async (key: string) => {
-    setLoading(true);
-    try {
-      const res = await fetch('/api/admin/overview', {
-        headers: { 'x-admin-secret': key },
-      });
+  // Jobs State
+  const [jobs, setJobs] = useState<any[]>([]);
 
-      if (!res.ok) {
-        if (res.status === 401) {
-          setIsAuthenticated(false);
-          setMessage({ type: 'error', text: 'Invalid administrator secret key.' });
-          return;
-        }
-        throw new Error('Failed to load admin data');
-      }
-
-      const json = await res.json();
-      if (json.success) {
-        setIsAuthenticated(true);
-        setAnimeList(json.data.anime || []);
-        setVersions(json.data.versions || []);
-        setEpisodes(json.data.episodes || []);
-        setChannels(json.data.channels || []);
-        setYoutubeConfigured(json.youtubeConfigured);
-        sessionStorage.setItem('animeyt_admin_key', key);
-      }
-    } catch (err) {
-      setMessage({ type: 'error', text: (err as Error).message });
-    } finally {
-      setLoading(false);
+  // Check saved secret on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('animeyt_admin_secret') || 'animeyt-admin-dev-key';
+    if (saved) {
+      setSecretKey(saved);
+      setIsAuthenticated(true);
     }
   }, []);
 
-  useEffect(() => {
-    const saved = sessionStorage.getItem('animeyt_admin_key');
-    if (saved) {
-      setAdminKey(saved);
-      loadOverview(saved);
-    }
-  }, [loadOverview]);
-
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (adminKey.trim()) {
-      loadOverview(adminKey.trim());
-    }
+    if (!secretKey.trim()) return;
+    localStorage.setItem('animeyt_admin_secret', secretKey.trim());
+    setIsAuthenticated(true);
   };
 
-  const handleSeed = async () => {
-    if (!confirm('This will seed the database with verified official anime episodes. Continue?')) return;
-    setLoading(true);
-    setMessage(null);
+  const getHeaders = () => ({
+    'Content-Type': 'application/json',
+    'x-admin-secret': secretKey.trim() || 'animeyt-admin-dev-key',
+  });
+
+  // 1. Run AniList Import
+  const handleRunAniListImport = async () => {
+    setImportingAniList(true);
+    setAnilistResult(null);
     try {
-      const res = await fetch('/api/admin/seed', {
+      const res = await fetch('/api/admin/import/anilist', {
         method: 'POST',
-        headers: { 'x-admin-secret': adminKey },
+        headers: getHeaders(),
+        body: JSON.stringify({
+          page: 1,
+          perPage: 25,
+          maxPages: anilistPages,
+          search: anilistSearch.trim() || undefined,
+        }),
       });
       const data = await res.json();
-      if (data.success) {
-        setMessage({ type: 'success', text: data.message });
-        loadOverview(adminKey);
-      } else {
-        setMessage({ type: 'error', text: data.error || 'Seed failed' });
-      }
+      setAnilistResult(data);
     } catch (err) {
-      setMessage({ type: 'error', text: (err as Error).message });
+      setAnilistResult({ error: (err as Error).message });
     } finally {
-      setLoading(false);
+      setImportingAniList(false);
     }
   };
 
-  const handleStatusChange = async (id: string, newStatus: VerificationStatus) => {
+  // 2. Run YouTube Discovery
+  const handleDiscoverCandidates = async () => {
+    setDiscovering(true);
+    setDiscoverResult(null);
     try {
-      const res = await fetch('/api/admin/verify', {
+      const res = await fetch('/api/admin/youtube/discover', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-admin-secret': adminKey,
-        },
+        headers: getHeaders(),
         body: JSON.stringify({
-          type: 'episode',
-          id,
-          status: newStatus,
+          searchQuery: discoverQuery.trim() || undefined,
+          targetAnimeSlug: targetSlug.trim() || undefined,
+          maxResults: 20,
+        }),
+      });
+      const data = await res.json();
+      setDiscoverResult(data);
+      loadCandidates();
+    } catch (err) {
+      setDiscoverResult({ error: (err as Error).message });
+    } finally {
+      setDiscovering(false);
+    }
+  };
+
+  // 3. Load Candidates
+  const loadCandidates = async () => {
+    setLoadingCandidates(true);
+    try {
+      const res = await fetch(`/api/admin/candidates?status=${candidateFilter}`, {
+        headers: getHeaders(),
+      });
+      const data = await res.json();
+      setCandidates(data.candidates || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingCandidates(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isAuthenticated && activeTab === 'candidates') {
+      loadCandidates();
+    } else if (isAuthenticated && activeTab === 'jobs') {
+      fetch('/api/admin/jobs', { headers: getHeaders() })
+        .then((r) => r.json())
+        .then((d) => setJobs(d.jobs || []))
+        .catch(() => {});
+    }
+  }, [isAuthenticated, activeTab, candidateFilter]);
+
+  // 4. Verify Candidate
+  const handleVerifyCandidate = async (candidateId: string, slug?: string) => {
+    try {
+      const res = await fetch('/api/admin/candidates/verify', {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({
+          candidateId,
+          animeSlug: slug || undefined,
         }),
       });
       const data = await res.json();
       if (data.success) {
-        setEpisodes((prev) =>
-          prev.map((ep) =>
-            (ep.id || ep._id) === id ? { ...ep, verificationStatus: newStatus } : ep
-          )
-        );
-        setMessage({ type: 'success', text: `Episode status updated to ${newStatus}.` });
+        loadCandidates();
       } else {
-        setMessage({ type: 'error', text: data.error || 'Update failed' });
+        alert(data.error || 'Failed to verify candidate');
       }
     } catch (err) {
-      setMessage({ type: 'error', text: (err as Error).message });
+      alert((err as Error).message);
     }
   };
 
-  const handleAddAnime = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
+  // 5. Reject Candidate
+  const handleRejectCandidate = async (candidateId: string) => {
     try {
-      const genresArray = newAnime.genres.split(',').map((g) => g.trim()).filter(Boolean);
-      const res = await fetch('/api/admin/anime', {
+      const res = await fetch('/api/admin/candidates/reject', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-admin-secret': adminKey,
-        },
-        body: JSON.stringify({
-          ...newAnime,
-          genres: genresArray,
-          releaseYear: Number(newAnime.releaseYear),
-        }),
+        headers: getHeaders(),
+        body: JSON.stringify({ candidateId }),
       });
-      const json = await res.json();
-      if (json.success) {
-        setMessage({ type: 'success', text: `Anime "${newAnime.title}" saved successfully!` });
-        setNewAnime({
-          title: '',
-          synopsis: '',
-          poster: '',
-          genres: 'Action, Fantasy',
-          releaseYear: 2024,
-          status: 'Ongoing',
-        });
-        loadOverview(adminKey);
-      } else {
-        setMessage({ type: 'error', text: json.error || 'Failed to save anime' });
+      const data = await res.json();
+      if (data.success) {
+        loadCandidates();
       }
     } catch (err) {
-      setMessage({ type: 'error', text: (err as Error).message });
-    } finally {
-      setLoading(false);
+      alert((err as Error).message);
     }
   };
 
-  const handleImport = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setMessage(null);
+  // 6. Availability Check
+  const handleRunAvailability = async () => {
+    setCheckingAvailability(true);
     try {
-      const res = await fetch('/api/youtube/import', {
+      const res = await fetch('/api/admin/availability', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-admin-secret': adminKey,
-        },
-        body: JSON.stringify(importForm),
+        headers: getHeaders(),
+        body: JSON.stringify({ limit: 30 }),
       });
-      const json = await res.json();
-      if (json.success) {
-        setMessage({ type: 'success', text: json.message });
-        loadOverview(adminKey);
-      } else {
-        setMessage({ type: 'error', text: json.error || 'Import failed' });
-      }
+      const data = await res.json();
+      setAvailabilityResult(data);
     } catch (err) {
-      setMessage({ type: 'error', text: (err as Error).message });
+      setAvailabilityResult({ error: (err as Error).message });
     } finally {
-      setLoading(false);
+      setCheckingAvailability(false);
     }
   };
 
   if (!isAuthenticated) {
     return (
-      <div className="max-w-md mx-auto my-16 p-6 sm:p-8 rounded-3xl bg-[#16161F] border border-[#282835] space-y-5 shadow-2xl">
-        <div className="text-center space-y-2">
-          <div className="w-12 h-12 rounded-2xl bg-[#202029] border border-[#2D2D3A] flex items-center justify-center mx-auto text-[#FF3D69]">
-            <Lock className="w-6 h-6" />
+      <div className="flex items-center justify-center min-h-[50vh] w-full py-12">
+        <div className="glass rounded-[36px] p-8 max-w-md w-full flex flex-col items-center">
+          <div className="w-14 h-14 rounded-[18px] bg-[#D81B60]/20 flex items-center justify-center text-[#FF8FB4] mb-4">
+            <ShieldAlert strokeWidth={1.8} className="w-7 h-7" />
           </div>
-          <h1 className="text-lg font-bold text-[#F5F5F7]">Administrator Access</h1>
-          <p className="text-xs text-[#A1A1B0]">
-            Enter your admin secret key to manage catalogue verification and imports.
+          <h1 className="text-xl font-bold text-white mb-2">Administrator Authentication</h1>
+          <p className="text-xs text-white/60 mb-6 text-center leading-relaxed">
+            Enter the ADMIN_SECRET_KEY to access pipeline import controls and video verification workflows.
           </p>
-        </div>
 
-        {message && (
-          <div
-            className={`p-3.5 rounded-xl text-xs font-medium ${
-              message.type === 'error'
-                ? 'bg-red-950/40 text-red-300 border border-red-500/30'
-                : 'bg-emerald-950/40 text-emerald-300 border border-emerald-500/30'
-            }`}
-          >
-            {message.text}
-          </div>
-        )}
-
-        <form onSubmit={handleLogin} className="space-y-4">
-          <div>
-            <label className="block text-xs font-medium text-[#A1A1B0] mb-1.5">
-              Admin Secret Key
-            </label>
+          <form onSubmit={handleLogin} className="w-full flex flex-col gap-3">
             <input
               type="password"
-              placeholder="Enter ADMIN_SECRET_KEY..."
-              value={adminKey}
-              onChange={(e) => setAdminKey(e.target.value)}
-              className="w-full px-3.5 py-2.5 text-xs bg-[#111117] border border-[#2B2B38] rounded-xl text-[#F5F5F7] focus:outline-none focus:border-[#FF3D69]"
-              required
+              placeholder="Admin secret key"
+              value={secretKey}
+              onChange={(e) => setSecretKey(e.target.value)}
+              className="glass rounded-full px-4 py-3 text-sm text-white bg-transparent outline-none w-full"
             />
-            <p className="text-[11px] text-[#686878] mt-1">
-              Configured via `ADMIN_SECRET_KEY` in .env.local (default: animeyt-admin-dev-key)
-            </p>
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-2.5 rounded-xl bg-[#FF3D69] hover:bg-[#FF5A81] text-white text-xs font-semibold flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
-          >
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
-            Authenticate Admin
-          </button>
-        </form>
+            <button type="submit" className="btn-primary w-full text-sm">
+              Authenticate
+            </button>
+          </form>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 pb-12">
-      {/* Top Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 rounded-3xl bg-[#16161F] border border-[#282835]">
+    <div className="flex flex-col gap-6 w-full">
+      {/* Admin Header */}
+      <div className="glass rounded-[36px] p-6 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="w-5 h-5 text-[#FF3D69]" />
-            <h1 className="text-lg font-bold text-[#F5F5F7]">
-              AnimeYT Catalogue Administration
-            </h1>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-[11px] font-bold tracking-wider text-[#FF8FB4] uppercase px-2.5 py-0.5 rounded-full bg-[#D81B60]/20">
+              PROTECTED PORTAL
+            </span>
           </div>
-          <p className="text-xs text-[#A1A1B0] mt-0.5">
-            Manage anime metadata, review imported YouTube videos, and configure official sources.
+          <h1 className="text-[26px] font-extrabold text-white tracking-tight">
+            Catalogue Pipeline & Verification
+          </h1>
+          <p className="text-[13px] text-white/60 mt-0.5">
+            Manage AniList metadata imports, YouTube discovery candidates, and episode verification.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Tab Controls */}
+        <div className="glass-chip rounded-full p-1 flex items-center gap-1 self-start md:self-auto flex-wrap">
           <button
-            onClick={() => loadOverview(adminKey)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-xl bg-[#202029] text-[#F5F5F7] border border-[#2D2D3A] hover:bg-[#282835]"
+            onClick={() => setActiveTab('anilist')}
+            className={`px-3.5 py-1.5 rounded-full text-[12.5px] font-semibold transition-all ${
+              activeTab === 'anilist' ? 'bg-[#D81B60] text-white' : 'text-white/70 hover:text-white'
+            }`}
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
+            AniList Import
           </button>
-
           <button
-            onClick={handleSeed}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-xl bg-[#202029] text-[#FF5A81] border border-[#FF3D69]/30 hover:bg-[#FF3D69]/10"
+            onClick={() => setActiveTab('candidates')}
+            className={`px-3.5 py-1.5 rounded-full text-[12.5px] font-semibold transition-all ${
+              activeTab === 'candidates' ? 'bg-[#D81B60] text-white' : 'text-white/70 hover:text-white'
+            }`}
           >
-            <Database className="w-3.5 h-3.5" />
-            Seed Initial 12 Anime
+            Candidate Review
           </button>
-
           <button
-            onClick={() => {
-              sessionStorage.removeItem('animeyt_admin_key');
-              setIsAuthenticated(false);
-            }}
-            className="px-3 py-1.5 text-xs rounded-xl bg-[#111117] text-[#A1A1B0] border border-[#2B2B38] hover:text-[#F5F5F7]"
+            onClick={() => setActiveTab('availability')}
+            className={`px-3.5 py-1.5 rounded-full text-[12.5px] font-semibold transition-all ${
+              activeTab === 'availability' ? 'bg-[#D81B60] text-white' : 'text-white/70 hover:text-white'
+            }`}
           >
-            Lock
+            Availability Check
+          </button>
+          <button
+            onClick={() => setActiveTab('jobs')}
+            className={`px-3.5 py-1.5 rounded-full text-[12.5px] font-semibold transition-all ${
+              activeTab === 'jobs' ? 'bg-[#D81B60] text-white' : 'text-white/70 hover:text-white'
+            }`}
+          >
+            Jobs History
           </button>
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="p-4 rounded-2xl bg-[#16161F] border border-[#282835]">
-          <span className="text-[11px] text-[#A1A1B0]">Total Anime Titles</span>
-          <p className="text-xl font-bold text-[#F5F5F7] mt-0.5">{animeList.length}</p>
-        </div>
-        <div className="p-4 rounded-2xl bg-[#16161F] border border-[#282835]">
-          <span className="text-[11px] text-[#A1A1B0]">Language Versions</span>
-          <p className="text-xl font-bold text-[#F5F5F7] mt-0.5">{versions.length}</p>
-        </div>
-        <div className="p-4 rounded-2xl bg-[#16161F] border border-[#282835]">
-          <span className="text-[11px] text-[#A1A1B0]">Total Episodes</span>
-          <p className="text-xl font-bold text-[#F5F5F7] mt-0.5">{episodes.length}</p>
-        </div>
-        <div className="p-4 rounded-2xl bg-[#16161F] border border-[#282835]">
-          <span className="text-[11px] text-[#A1A1B0]">YouTube API Status</span>
-          <p className="text-xs font-bold mt-1.5 flex items-center gap-1.5">
-            {youtubeConfigured ? (
-              <span className="text-emerald-400 flex items-center gap-1">
-                <CheckCircle className="w-3.5 h-3.5" /> Configured
-              </span>
-            ) : (
-              <span className="text-amber-400 flex items-center gap-1">
-                <AlertTriangle className="w-3.5 h-3.5" /> Key Missing (Fallback Mode)
-              </span>
-            )}
-          </p>
-        </div>
-      </div>
-
-      {/* Admin Tabs */}
-      <div className="flex border-b border-[#22222E] gap-2">
-        <button
-          onClick={() => setActiveTab('review')}
-          className={`px-4 py-2 text-xs font-semibold border-b-2 transition-colors ${
-            activeTab === 'review'
-              ? 'border-[#FF3D69] text-[#FF5A81]'
-              : 'border-transparent text-[#A1A1B0] hover:text-[#F5F5F7]'
-          }`}
-        >
-          Verification Workflow ({episodes.filter((e) => e.verificationStatus === 'unverified').length} Pending)
-        </button>
-        <button
-          onClick={() => setActiveTab('import')}
-          className={`px-4 py-2 text-xs font-semibold border-b-2 transition-colors ${
-            activeTab === 'import'
-              ? 'border-[#FF3D69] text-[#FF5A81]'
-              : 'border-transparent text-[#A1A1B0] hover:text-[#F5F5F7]'
-          }`}
-        >
-          YouTube Video Discovery
-        </button>
-        <button
-          onClick={() => setActiveTab('addAnime')}
-          className={`px-4 py-2 text-xs font-semibold border-b-2 transition-colors ${
-            activeTab === 'addAnime'
-              ? 'border-[#FF3D69] text-[#FF5A81]'
-              : 'border-transparent text-[#A1A1B0] hover:text-[#F5F5F7]'
-          }`}
-        >
-          Add Anime Metadata
-        </button>
-      </div>
-
-      {/* Review Tab */}
-      {activeTab === 'review' && (
-        <div className="space-y-4">
-          <div className="rounded-2xl border border-[#282835] bg-[#16161F] overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-[#111117] text-[#A1A1B0] uppercase text-[10px] tracking-wider border-b border-[#282835]">
-                  <tr>
-                    <th className="p-3.5">Episode</th>
-                    <th className="p-3.5">Title & Video ID</th>
-                    <th className="p-3.5">Status</th>
-                    <th className="p-3.5">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#22222E]">
-                  {episodes.map((ep) => {
-                    const epId = ep.id || ep._id || '';
-                    return (
-                      <tr key={epId} className="hover:bg-[#202029]/50">
-                        <td className="p-3.5 font-semibold text-[#F5F5F7] whitespace-nowrap">
-                          EP {ep.episodeNumber} (S{ep.seasonNumber})
-                        </td>
-                        <td className="p-3.5">
-                          <div className="font-medium text-[#F5F5F7]">{ep.title}</div>
-                          <div className="flex items-center gap-2 mt-0.5 text-[11px] text-[#A1A1B0]">
-                            <span className="font-mono">{ep.youtubeVideoId}</span>
-                            <a
-                              href={`https://youtube.com/watch?v=${ep.youtubeVideoId}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-[#FF5A81] hover:underline inline-flex items-center gap-0.5"
-                            >
-                              Test YouTube <ExternalLink className="w-2.5 h-2.5" />
-                            </a>
-                          </div>
-                        </td>
-                        <td className="p-3.5 whitespace-nowrap">
-                          <span
-                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase ${
-                              ep.verificationStatus === 'verified'
-                                ? 'bg-emerald-950/60 text-emerald-300 border border-emerald-500/30'
-                                : ep.verificationStatus === 'unavailable'
-                                ? 'bg-red-950/60 text-red-300 border border-red-500/30'
-                                : 'bg-amber-950/60 text-amber-300 border border-amber-500/30'
-                            }`}
-                          >
-                            {ep.verificationStatus}
-                          </span>
-                        </td>
-                        <td className="p-3.5 whitespace-nowrap">
-                          <div className="flex items-center gap-1.5">
-                            {ep.verificationStatus !== 'verified' && (
-                              <button
-                                onClick={() => handleStatusChange(epId, 'verified')}
-                                className="px-2.5 py-1 text-[11px] rounded-lg bg-emerald-900/40 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-800/40"
-                              >
-                                Mark Verified
-                              </button>
-                            )}
-                            {ep.verificationStatus !== 'unavailable' && (
-                              <button
-                                onClick={() => handleStatusChange(epId, 'unavailable')}
-                                className="px-2.5 py-1 text-[11px] rounded-lg bg-red-900/40 text-red-300 border border-red-500/40 hover:bg-red-800/40"
-                              >
-                                Mark Unavailable
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Import Tab */}
-      {activeTab === 'import' && (
-        <div className="p-6 rounded-3xl bg-[#16161F] border border-[#282835] space-y-4 max-w-2xl">
-          <div className="space-y-1">
-            <h2 className="text-sm font-bold text-[#F5F5F7] flex items-center gap-2">
-              <Video className="w-4 h-4 text-red-500" />
-              Import Videos from YouTube Channel or Playlist
+      {/* Tab 1: AniList Metadata Import */}
+      {activeTab === 'anilist' && (
+        <div className="glass rounded-[32px] p-6 flex flex-col gap-5 max-w-2xl">
+          <div>
+            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              <Sparkles strokeWidth={1.8} className="w-5 h-5 text-[#FF8FB4]" />
+              AniList Metadata Importer
             </h2>
-            <p className="text-xs text-[#A1A1B0]">
-              Imported episodes are created as <strong className="text-amber-400">unverified</strong> for administrative review prior to public discovery.
+            <p className="text-xs text-white/60 mt-1 leading-relaxed">
+              Fetches anime metadata from official AniList GraphQL API and upserts into MongoDB. Upserts will not overwrite verified YouTube mappings or existing verification decisions.
             </p>
           </div>
 
-          <form onSubmit={handleImport} className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-[#A1A1B0] mb-1">
-                Source Target Type
+              <label className="text-xs font-semibold text-white/70 block mb-1">
+                Pages to Import (25 anime / page)
               </label>
-              <select
-                value={importForm.type}
-                onChange={(e) => setImportForm({ ...importForm, type: e.target.value })}
-                className="w-full px-3 py-2 text-xs bg-[#111117] border border-[#2B2B38] rounded-xl text-[#F5F5F7]"
-              >
-                <option value="playlist">YouTube Playlist ID</option>
-                <option value="channel">Official Channel ID</option>
-              </select>
+              <input
+                type="number"
+                min="1"
+                max="10"
+                value={anilistPages}
+                onChange={(e) => setAnilistPages(parseInt(e.target.value, 10) || 1)}
+                className="glass rounded-xl px-3 py-2 text-sm text-white bg-transparent w-full"
+              />
             </div>
-
             <div>
-              <label className="block text-xs font-medium text-[#A1A1B0] mb-1">
-                Target YouTube Playlist ID / Channel ID
+              <label className="text-xs font-semibold text-white/70 block mb-1">
+                Target Anime Title (Optional search)
               </label>
               <input
                 type="text"
-                placeholder="PLwLSw1_Lnc5x2Z8lqQn4n5jD8p"
-                value={importForm.targetId}
-                onChange={(e) => setImportForm({ ...importForm, targetId: e.target.value })}
-                className="w-full px-3 py-2 text-xs bg-[#111117] border border-[#2B2B38] rounded-xl text-[#F5F5F7] font-mono"
-                required
+                placeholder="e.g. Solo Leveling, One Piece"
+                value={anilistSearch}
+                onChange={(e) => setAnilistSearch(e.target.value)}
+                className="glass rounded-xl px-3 py-2 text-sm text-white bg-transparent w-full"
               />
             </div>
+          </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="py-2.5 px-5 rounded-xl bg-[#FF3D69] text-white text-xs font-semibold hover:bg-[#FF5A81] transition-colors disabled:opacity-50"
-            >
-              {loading ? 'Importing from YouTube...' : 'Start YouTube Import'}
-            </button>
-          </form>
+          <button
+            onClick={handleRunAniListImport}
+            disabled={importingAniList}
+            className="btn-primary w-fit text-sm px-6 gap-2"
+          >
+            <RefreshCw strokeWidth={1.8} className={`w-4 h-4 ${importingAniList ? 'animate-spin' : ''}`} />
+            <span>{importingAniList ? 'Importing from AniList...' : 'Start AniList Import'}</span>
+          </button>
+
+          {anilistResult && (
+            <div className="glass-chip rounded-2xl p-4 text-xs font-mono text-white/80 whitespace-pre-wrap">
+              {JSON.stringify(anilistResult, null, 2)}
+            </div>
+          )}
         </div>
       )}
 
-      {/* Add Anime Tab */}
-      {activeTab === 'addAnime' && (
-        <div className="p-6 rounded-3xl bg-[#16161F] border border-[#282835] space-y-4 max-w-2xl">
-          <h2 className="text-sm font-bold text-[#F5F5F7] flex items-center gap-2">
-            <Film className="w-4 h-4 text-[#FF3D69]" />
-            Add or Edit Anime Catalogue Entry
-          </h2>
-
-          <form onSubmit={handleAddAnime} className="space-y-3">
-            <div>
-              <label className="block text-xs font-medium text-[#A1A1B0] mb-1">Anime Title</label>
-              <input
-                type="text"
-                placeholder="e.g. Demon Slayer"
-                value={newAnime.title}
-                onChange={(e) => setNewAnime({ ...newAnime, title: e.target.value })}
-                className="w-full px-3 py-2 text-xs bg-[#111117] border border-[#2B2B38] rounded-xl text-[#F5F5F7]"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-[#A1A1B0] mb-1">Synopsis</label>
-              <textarea
-                placeholder="Short plot summary..."
-                value={newAnime.synopsis}
-                onChange={(e) => setNewAnime({ ...newAnime, synopsis: e.target.value })}
-                rows={3}
-                className="w-full px-3 py-2 text-xs bg-[#111117] border border-[#2B2B38] rounded-xl text-[#F5F5F7]"
-                required
-              />
+      {/* Tab 2: Candidate Discovery & Review */}
+      {activeTab === 'candidates' && (
+        <div className="flex flex-col gap-6 w-full">
+          {/* Discovery Box */}
+          <div className="glass rounded-[32px] p-6 flex flex-col gap-4">
+            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              <Video strokeWidth={1.8} className="w-5 h-5 text-[#FF8FB4]" />
+              Discover Candidate Videos from Official YouTube Channels
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-semibold text-white/70 block mb-1">
+                  Search Query / Episode Title
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Demon Slayer Episode 1"
+                  value={discoverQuery}
+                  onChange={(e) => setDiscoverQuery(e.target.value)}
+                  className="glass rounded-xl px-3 py-2 text-sm text-white bg-transparent w-full"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-white/70 block mb-1">
+                  Target Anime Slug
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. demon-slayer"
+                  value={targetSlug}
+                  onChange={(e) => setTargetSlug(e.target.value)}
+                  className="glass rounded-xl px-3 py-2 text-sm text-white bg-transparent w-full"
+                />
+              </div>
             </div>
 
             <button
-              type="submit"
-              disabled={loading}
-              className="py-2.5 px-5 rounded-xl bg-[#FF3D69] text-white text-xs font-semibold hover:bg-[#FF5A81] transition-colors disabled:opacity-50"
+              onClick={handleDiscoverCandidates}
+              disabled={discovering}
+              className="btn-primary w-fit text-sm px-6 gap-2"
             >
-              {loading ? 'Saving Anime...' : 'Save Anime to Catalogue'}
+              <Search strokeWidth={1.8} className="w-4 h-4" />
+              <span>{discovering ? 'Discovering Candidates...' : 'Run Discovery on Official Channels'}</span>
             </button>
-          </form>
+
+            {discoverResult && (
+              <div className="glass-chip rounded-xl p-3 text-xs font-mono text-white/80">
+                {JSON.stringify(discoverResult)}
+              </div>
+            )}
+          </div>
+
+          {/* Candidate Review Table */}
+          <div className="glass rounded-[32px] p-6 flex flex-col gap-4">
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              <h2 className="text-lg font-bold text-white">Candidates for Verification</h2>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-white/50">Filter:</span>
+                <select
+                  value={candidateFilter}
+                  onChange={(e) => setCandidateFilter(e.target.value)}
+                  className="glass rounded-full px-3 py-1 text-xs text-white bg-[#1A122E] outline-none"
+                >
+                  <option value="discovered">Discovered</option>
+                  <option value="verified">Verified</option>
+                  <option value="rejected">Rejected</option>
+                  <option value="all">All</option>
+                </select>
+                <button
+                  onClick={loadCandidates}
+                  className="glass-chip p-1.5 rounded-full text-white/70 hover:text-white"
+                >
+                  <RefreshCw strokeWidth={1.8} className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {loadingCandidates ? (
+              <div className="text-center py-8 text-white/60 text-sm">Loading candidates...</div>
+            ) : candidates.length > 0 ? (
+              <div className="flex flex-col gap-3">
+                {candidates.map((cand) => (
+                  <div
+                    key={cand._id}
+                    className="glass rounded-[20px] p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                  >
+                    <div className="flex items-center gap-3.5 min-w-0">
+                      <div className="relative w-24 aspect-video rounded-xl overflow-hidden bg-black shrink-0 border border-white/10">
+                        {cand.thumbnailUrl && (
+                          <img src={cand.thumbnailUrl} alt={cand.videoTitle} className="w-full h-full object-cover" />
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-[11px] font-bold text-[#FF8FB4] px-2 py-0.2 rounded-full bg-[#D81B60]/20">
+                            {cand.channelTitle}
+                          </span>
+                          <span className="text-[11px] text-white/50">{cand.claimedLanguage}</span>
+                          <span className={`text-[10px] font-semibold uppercase px-2 py-0.2 rounded-full ${
+                            cand.verificationStatus === 'verified'
+                              ? 'bg-emerald-500/20 text-emerald-300'
+                              : cand.verificationStatus === 'rejected'
+                              ? 'bg-rose-500/20 text-rose-300'
+                              : 'bg-amber-500/20 text-amber-300'
+                          }`}>
+                            {cand.verificationStatus}
+                          </span>
+                        </div>
+                        <h4 className="text-[13.5px] font-semibold text-white truncate max-w-md">
+                          {cand.videoTitle}
+                        </h4>
+                        <div className="flex items-center gap-2 text-[11.5px] text-white/50 mt-0.5">
+                          <span>Target: {cand.candidateAnimeSlug || 'None'}</span>
+                          <span>•</span>
+                          <a
+                            href={`https://youtube.com/watch?v=${cand.youtubeVideoId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[#FF8FB4] hover:underline inline-flex items-center gap-0.5"
+                          >
+                            YouTube <ExternalLink strokeWidth={1.8} className="w-3 h-3" />
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                      {cand.verificationStatus !== 'verified' && (
+                        <button
+                          onClick={() => handleVerifyCandidate(cand._id, cand.candidateAnimeSlug)}
+                          className="btn-primary text-xs px-3.5 py-1.5 h-8 gap-1"
+                        >
+                          <CheckCircle strokeWidth={1.8} className="w-3.5 h-3.5" />
+                          <span>Verify & Publish</span>
+                        </button>
+                      )}
+                      {cand.verificationStatus !== 'rejected' && (
+                        <button
+                          onClick={() => handleRejectCandidate(cand._id)}
+                          className="btn-secondary text-xs px-3 py-1.5 h-8 gap-1"
+                        >
+                          <XCircle strokeWidth={1.8} className="w-3.5 h-3.5" />
+                          <span>Reject</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-white/50 text-sm">
+                No candidates found with status &quot;{candidateFilter}&quot;.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Tab 3: Availability Check */}
+      {activeTab === 'availability' && (
+        <div className="glass rounded-[32px] p-6 flex flex-col gap-4 max-w-xl">
+          <h2 className="text-lg font-bold text-white">Embed Playback Availability Checker</h2>
+          <p className="text-xs text-white/60 leading-relaxed">
+            Verifies that all currently published YouTube embeds remain playable and have not been removed, set to private, or restricted from external embedding by license holders.
+          </p>
+
+          <button
+            onClick={handleRunAvailability}
+            disabled={checkingAvailability}
+            className="btn-primary w-fit text-sm px-6 gap-2"
+          >
+            <RefreshCw strokeWidth={1.8} className={`w-4 h-4 ${checkingAvailability ? 'animate-spin' : ''}`} />
+            <span>{checkingAvailability ? 'Checking Availability...' : 'Run Embed Availability Audit'}</span>
+          </button>
+
+          {availabilityResult && (
+            <div className="glass-chip rounded-xl p-4 text-xs font-mono text-white/80">
+              {JSON.stringify(availabilityResult, null, 2)}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Tab 4: Jobs History */}
+      {activeTab === 'jobs' && (
+        <div className="glass rounded-[32px] p-6 flex flex-col gap-4">
+          <h2 className="text-lg font-bold text-white flex items-center gap-2">
+            <List strokeWidth={1.8} className="w-5 h-5 text-[#FF8FB4]" />
+            Pipeline Import Jobs History
+          </h2>
+
+          {jobs.length > 0 ? (
+            <div className="flex flex-col gap-2.5">
+              {jobs.map((job) => (
+                <div key={job._id} className="glass rounded-xl p-3 flex items-center justify-between text-xs">
+                  <div>
+                    <div className="font-semibold text-white">{job.jobType}</div>
+                    <div className="text-white/50">{new Date(job.createdAt).toLocaleString()}</div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-white/70">
+                      Processed: {job.processedCount} | Inserted: {job.insertedCount} | Skipped: {job.skippedCount}
+                    </span>
+                    <span className={`font-bold uppercase px-2 py-0.5 rounded-full ${
+                      job.status === 'completed'
+                        ? 'bg-emerald-500/20 text-emerald-300'
+                        : job.status === 'failed'
+                        ? 'bg-rose-500/20 text-rose-300'
+                        : 'bg-amber-500/20 text-amber-300'
+                    }`}>
+                      {job.status}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-white/50 text-sm">No recorded jobs yet.</div>
+          )}
         </div>
       )}
     </div>

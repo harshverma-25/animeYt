@@ -2,10 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Play, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
-import { AnimeItem } from '@/data/anime';
 
 interface HeroProps {
-  featuredAnime: AnimeItem[];
+  featuredAnime: any[];
 }
 
 export default function Hero({ featuredAnime }: HeroProps) {
@@ -33,7 +32,10 @@ export default function Hero({ featuredAnime }: HeroProps) {
   if (!anime) return null;
 
   const firstEp = anime.versions?.[0]?.episodes?.[0];
-  const watchHref = firstEp ? `/watch/${anime.slug}/${firstEp.id}` : `/anime/${anime.slug}`;
+  const verifiedCount = anime.verifiedEpisodeCount ?? anime.totalEpisodes ?? 0;
+  const watchHref = firstEp ? `/watch/${anime.slug}/${firstEp.id || firstEp.youtubeVideoId}` : `/anime/${anime.slug}`;
+  const languages = anime.availableAudioLanguages || anime.languages || ['Japanese'];
+  const posterUrl = anime.backdrop || anime.poster || (firstEp ? `https://img.youtube.com/vi/${firstEp.youtubeVideoId}/hqdefault.jpg` : undefined);
 
   return (
     <div
@@ -69,10 +71,10 @@ export default function Hero({ featuredAnime }: HeroProps) {
           <div className="text-[12px] font-medium text-white/60 mb-4 flex items-center gap-2 flex-wrap">
             <span>{anime.releaseYear}</span>
             <span>•</span>
-            <span>{anime.genres.join(', ')}</span>
+            <span>{anime.genres?.join(', ')}</span>
             <span>•</span>
             <span className="text-[#FFC2D6] font-semibold">
-              {anime.languages.join(' & ')} Audio
+              {languages.length > 0 ? languages.join(' & ') : 'Official'} Audio
             </span>
           </div>
         </div>
@@ -81,75 +83,87 @@ export default function Hero({ featuredAnime }: HeroProps) {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-1">
           {/* Action buttons (compact height) */}
           <div className="flex items-center gap-3 flex-wrap">
-            <Link
-              href={watchHref}
-              className="btn-primary gap-2 text-[14px] px-6 h-[46px]"
-              aria-label={`Watch ${anime.title} on YouTube`}
-            >
-              <Play strokeWidth={2} className="w-4 h-4 fill-white" />
-              <span>Watch on YouTube</span>
-            </Link>
+            {verifiedCount > 0 ? (
+              <Link
+                href={watchHref}
+                className="btn-primary gap-2 text-[14px] px-6 h-[46px]"
+                aria-label={`Watch ${anime.title} on YouTube`}
+              >
+                <Play strokeWidth={2} className="w-4 h-4 fill-white" />
+                <span>Watch on YouTube</span>
+              </Link>
+            ) : (
+              <Link
+                href={`/anime/${anime.slug}`}
+                className="btn-primary gap-2 text-[14px] px-6 h-[46px]"
+              >
+                <span>View Details</span>
+              </Link>
+            )}
 
             <Link
               href={`/anime/${anime.slug}`}
               className="btn-secondary text-[14px] px-5 h-[46px]"
               aria-label={`View details for ${anime.title}`}
             >
-              <span>View Details</span>
+              <span>Explore Info</span>
             </Link>
           </div>
 
           {/* Carousel dots & navigation buttons */}
-          <div className="flex items-center gap-2.5 self-end sm:self-auto">
-            {/* Dots */}
-            <div className="flex items-center gap-1.5">
-              {featuredAnime.map((item, idx) => (
-                <button
-                  key={item.id}
-                  onClick={() => setCurrentIndex(idx)}
-                  className={`rounded-full transition-all duration-300 ${
-                    idx === currentIndex
-                      ? 'w-[28px] h-[6px] bg-[#D81B60]'
-                      : 'w-[6px] h-[6px] bg-white/20 hover:bg-white/40'
-                  }`}
-                  aria-label={`Slide ${idx + 1}`}
-                />
-              ))}
-            </div>
+          {featuredAnime.length > 1 && (
+            <div className="flex items-center gap-2.5 self-end sm:self-auto">
+              {/* Dots */}
+              <div className="flex items-center gap-1.5">
+                {featuredAnime.map((item, idx) => (
+                  <button
+                    key={item.id || item.slug || idx}
+                    onClick={() => setCurrentIndex(idx)}
+                    className={`rounded-full transition-all duration-300 ${
+                      idx === currentIndex
+                        ? 'w-[28px] h-[6px] bg-[#D81B60]'
+                        : 'w-[6px] h-[6px] bg-white/20 hover:bg-white/40'
+                    }`}
+                    aria-label={`Slide ${idx + 1}`}
+                  />
+                ))}
+              </div>
 
-            {/* Prev/Next 38px round glass buttons */}
-            <div className="flex items-center gap-1.5 ml-1">
-              <button
-                onClick={handlePrev}
-                className="w-[38px] h-[38px] rounded-full glass flex items-center justify-center text-white/80 hover:text-white hover:bg-white/15 transition-all"
-                aria-label="Previous Featured Anime"
-              >
-                <ChevronLeft strokeWidth={1.8} className="w-4 h-4" />
-              </button>
-              <button
-                onClick={handleNext}
-                className="w-[38px] h-[38px] rounded-full glass flex items-center justify-center text-white/80 hover:text-white hover:bg-white/15 transition-all"
-                aria-label="Next Featured Anime"
-              >
-                <ChevronRight strokeWidth={1.8} className="w-4 h-4" />
-              </button>
+              {/* Prev/Next 38px round glass buttons */}
+              <div className="flex items-center gap-1.5 ml-1">
+                <button
+                  onClick={handlePrev}
+                  className="w-[38px] h-[38px] rounded-full glass flex items-center justify-center text-white/80 hover:text-white hover:bg-white/15 transition-all"
+                  aria-label="Previous Featured Anime"
+                >
+                  <ChevronLeft strokeWidth={1.8} className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={handleNext}
+                  className="w-[38px] h-[38px] rounded-full glass flex items-center justify-center text-white/80 hover:text-white hover:bg-white/15 transition-all"
+                  aria-label="Next Featured Anime"
+                >
+                  <ChevronRight strokeWidth={1.8} className="w-4 h-4" />
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 
       {/* Right Column: 28px rounded Key Art Card */}
       <div className="w-full sm:w-[260px] md:w-[280px] lg:w-[320px] shrink-0">
         <div className="relative rounded-[28px] aspect-[16/10] sm:aspect-[4/3] w-full overflow-hidden shadow-xl border border-white/15 select-none group bg-[#120E1E]">
-          {/* YouTube HQ Thumbnail */}
-          {firstEp ? (
+          {posterUrl ? (
             <img
-              src={`https://img.youtube.com/vi/${firstEp.youtubeVideoId}/hqdefault.jpg`}
+              src={posterUrl}
               alt={anime.title}
               className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
             />
           ) : (
-            <div className="absolute inset-0 bg-gradient-to-br from-[#1E1630] to-[#0D0916]" />
+            <div className="absolute inset-0 bg-gradient-to-br from-[#1E1630] to-[#0D0916] flex items-center justify-center text-white/20 text-3xl font-bold">
+              {anime.title.slice(0, 2).toUpperCase()}
+            </div>
           )}
 
           {/* Dark cinematic vignette overlay */}
@@ -158,25 +172,29 @@ export default function Hero({ featuredAnime }: HeroProps) {
           {/* Top-Left Glass Chip: Language */}
           <div className="absolute top-3 left-3 z-10">
             <span className="glass-chip inline-flex items-center px-2.5 py-1 text-[11px] font-semibold text-white rounded-full">
-              {anime.languages[0]} Audio
+              {languages[0] || 'Official'} Audio
             </span>
           </div>
 
           {/* Bottom-Right Glass Chip: Episodes */}
-          <div className="absolute bottom-3 right-3 z-10">
-            <span className="glass-chip inline-flex items-center px-2.5 py-1 text-[11px] font-bold tracking-wider text-white rounded-full">
-              {anime.totalEpisodes} EPS
-            </span>
-          </div>
+          {verifiedCount > 0 && (
+            <div className="absolute bottom-3 right-3 z-10">
+              <span className="glass-chip inline-flex items-center px-2.5 py-1 text-[11px] font-bold tracking-wider text-white rounded-full">
+                {verifiedCount} EPS
+              </span>
+            </div>
+          )}
 
           {/* Bottom-Left 48px Glass Play Button */}
-          <Link
-            href={watchHref}
-            className="absolute bottom-3 left-3 z-10 w-[48px] h-[48px] rounded-full glass flex items-center justify-center text-white shadow-xl hover:scale-110 hover:bg-[#D81B60] transition-all group-hover:bg-[#D81B60]"
-            aria-label={`Play ${anime.title}`}
-          >
-            <Play strokeWidth={2} className="w-5 h-5 fill-white ml-0.5" />
-          </Link>
+          {verifiedCount > 0 && (
+            <Link
+              href={watchHref}
+              className="absolute bottom-3 left-3 z-10 w-[48px] h-[48px] rounded-full glass flex items-center justify-center text-white shadow-xl hover:scale-110 hover:bg-[#D81B60] transition-all group-hover:bg-[#D81B60]"
+              aria-label={`Play ${anime.title}`}
+            >
+              <Play strokeWidth={2} className="w-5 h-5 fill-white ml-0.5" />
+            </Link>
+          )}
         </div>
       </div>
     </div>

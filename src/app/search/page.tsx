@@ -1,19 +1,32 @@
 'use client';
-import React, { Suspense } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Search, Compass } from 'lucide-react';
 import AnimeCard from '@/components/AnimeCard';
-import { searchAnime } from '@/data/anime';
 
 function SearchResultsContent() {
   const searchParams = useSearchParams();
   const query = searchParams.get('q') || '';
-  const results = searchAnime(query);
+  const [results, setResults] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch(`/api/catalogue?q=${encodeURIComponent(query)}&limit=50`)
+      .then((r) => r.json())
+      .then((data) => {
+        setResults(data.items || []);
+        setLoading(false);
+      })
+      .catch(() => {
+        setResults([]);
+        setLoading(false);
+      });
+  }, [query]);
 
   return (
     <div className="flex flex-col gap-8 w-full">
-      {/* Search Header Glass Card */}
       <div className="glass rounded-[36px] p-6 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-5">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-[18px] bg-[#D81B60] flex items-center justify-center text-white shadow-lg">
@@ -34,14 +47,14 @@ function SearchResultsContent() {
         </div>
       </div>
 
-      {/* Results Grid or Empty State */}
-      {results.length > 0 ? (
-        <div
-          className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4"
-          
-        >
+      {loading ? (
+        <div className="glass rounded-[32px] p-12 text-center text-white/60">
+          Searching catalogue...
+        </div>
+      ) : results.length > 0 ? (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
           {results.map((anime) => (
-            <AnimeCard key={anime.id} anime={anime} />
+            <AnimeCard key={anime.id || anime.slug} anime={anime} />
           ))}
         </div>
       ) : (
@@ -51,7 +64,7 @@ function SearchResultsContent() {
           </div>
           <h2 className="text-[22px] font-bold text-white mb-2">No Anime Found</h2>
           <p className="text-[14px] text-white/65 mb-6 leading-relaxed max-w-md">
-            We couldn\'t find any anime matching &quot;{query}&quot;. Try searching for &quot;Demon Slayer&quot;, &quot;Jujutsu Kaisen&quot;, &quot;Action&quot; or browse the full catalogue.
+            We couldn&apos;t find any anime matching &quot;{query}&quot;. Try exploring other titles in our catalogue.
           </p>
           <Link
             href="/explore"

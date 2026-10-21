@@ -1,21 +1,41 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Bookmark, Compass } from 'lucide-react';
 import AnimeCard from '@/components/AnimeCard';
-import { ANIME_LIST } from '@/data/anime';
 
 export default function WatchlistPage() {
-  // Demo saved anime (e.g. Demon Slayer & Solo Leveling)
-  const [savedItems, setSavedItems] = useState(ANIME_LIST.slice(0, 3));
+  const [savedItems, setSavedItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Read saved slugs from local storage or fetch first few saved items
+    const savedSlugs: string[] = JSON.parse(localStorage.getItem('animeyt_watchlist') || '[]');
+    if (savedSlugs.length === 0) {
+      setSavedItems([]);
+      setLoading(false);
+      return;
+    }
+
+    Promise.all(
+      savedSlugs.map((slug) =>
+        fetch(`/api/catalogue/${slug}`)
+          .then((r) => (r.ok ? r.json() : null))
+          .catch(() => null)
+      )
+    ).then((items) => {
+      setSavedItems(items.filter(Boolean));
+      setLoading(false);
+    });
+  }, []);
 
   const handleClear = () => {
+    localStorage.removeItem('animeyt_watchlist');
     setSavedItems([]);
   };
 
   return (
     <div className="flex flex-col gap-8 w-full">
-      {/* Header Glass Card */}
       <div className="glass rounded-[36px] p-6 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-5">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-[18px] bg-[#D81B60] flex items-center justify-center text-white shadow-lg">
@@ -41,14 +61,14 @@ export default function WatchlistPage() {
         )}
       </div>
 
-      {/* Grid or Empty State */}
-      {savedItems.length > 0 ? (
-        <div
-          className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4"
-          
-        >
+      {loading ? (
+        <div className="glass rounded-[32px] p-12 text-center text-white/60">
+          Loading watchlist...
+        </div>
+      ) : savedItems.length > 0 ? (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
           {savedItems.map((anime) => (
-            <AnimeCard key={anime.id} anime={anime} />
+            <AnimeCard key={anime.id || anime.slug} anime={anime} />
           ))}
         </div>
       ) : (

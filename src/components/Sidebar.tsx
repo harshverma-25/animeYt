@@ -12,7 +12,6 @@ import {
   Menu,
   X,
   Bookmark,
-  Info,
 } from 'lucide-react';
 import { GENRE_COLORS } from '@/data/anime';
 

@@ -1,7 +1,6 @@
 'use client';
 import { useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { getAnimeBySlug } from '@/data/anime';
 
 export default function WatchSlugRedirect() {
   const params = useParams();
@@ -9,12 +8,20 @@ export default function WatchSlugRedirect() {
   const slug = params?.slug as string;
 
   useEffect(() => {
-    const anime = getAnimeBySlug(slug);
-    if (anime && anime.versions?.[0]?.episodes?.[0]) {
-      router.replace(`/watch/${slug}/${anime.versions[0].episodes[0].id}`);
-    } else {
-      router.replace(`/anime/${slug}`);
-    }
+    if (!slug) return;
+    fetch(`/api/catalogue/${slug}`)
+      .then((res) => res.json())
+      .then((anime) => {
+        const firstEp = anime?.versions?.[0]?.episodes?.[0];
+        if (firstEp) {
+          router.replace(`/watch/${slug}/${firstEp.id || firstEp.youtubeVideoId}`);
+        } else {
+          router.replace(`/anime/${slug}`);
+        }
+      })
+      .catch(() => {
+        router.replace(`/anime/${slug}`);
+      });
   }, [slug, router]);
 
   return (

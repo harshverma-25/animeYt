@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/**/*.test.ts"
+    "test": "tsx --env-file=.env --test tests/**/*.test.ts",
+    "import:anilist": "tsx --env-file=.env scripts/importAniList.ts",
+    "discover:youtube": "tsx --env-file=.env scripts/discoverYouTube.ts"
   },
   "dependencies": {
     "lucide-react": "^1.60.0",

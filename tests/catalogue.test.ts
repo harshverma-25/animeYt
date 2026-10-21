@@ -1,9 +1,144 @@
-import { test, describe } from 'node:test';
+import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert';
+import mongoose from 'mongoose';
 import { CatalogueService } from '../src/lib/services/catalogueService';
 import { YouTubeService } from '../src/lib/services/youtubeService';
+import { connectToDatabase } from '../src/lib/db/mongodb';
+import { Anime } from '../src/lib/db/models/Anime';
+import { AnimeVersion } from '../src/lib/db/models/AnimeVersion';
+import { Episode } from '../src/lib/db/models/Episode';
 
 describe('AnimeYT Catalogue & Navigation Tests', () => {
+  let createdAnimeIds: any[] = [];
+
+  before(async () => {
+    await connectToDatabase();
+
+    // Clean up any stale records from previous aborted runs
+    await Anime.deleteMany({
+      $or: [
+        { anilistId: { $in: [888001, 888002, 888003] } },
+        { slug: { $in: ['mob-psycho-100', 'tokyo-revengers', 'spy-x-family'] } },
+      ],
+    });
+    await Episode.deleteMany({
+      youtubeVideoId: { $in: ['vid-mob-1', 'vid-mob-2', 'vid-tr-ja-1', 'vid-tr-hi-1'] },
+    });
+
+    // Seed test anime for test suite
+    const a1 = await Anime.create({
+      anilistId: 888001,
+      title: 'Mob Psycho 100',
+      slug: 'mob-psycho-100',
+      synopsis: 'A middle school boy who possesses psychic powers.',
+      genres: ['Action', 'Comedy'],
+      releaseYear: 2016,
+      status: 'Completed',
+      verifiedEpisodeCount: 2,
+      popularityScore: 100,
+    });
+
+    const a2 = await Anime.create({
+      anilistId: 888002,
+      title: 'Tokyo Revengers',
+      slug: 'tokyo-revengers',
+      synopsis: 'Time travel delinquent series.',
+      genres: ['Action', 'Drama'],
+      releaseYear: 2021,
+      status: 'Ongoing',
+      verifiedEpisodeCount: 2,
+      popularityScore: 90,
+    });
+
+    const a3 = await Anime.create({
+      anilistId: 888003,
+      title: 'Spy x Family',
+      slug: 'spy-x-family',
+      synopsis: 'Secret agent posing as a family man.',
+      genres: ['Action', 'Comedy'],
+      releaseYear: 2022,
+      status: 'Ongoing',
+      verifiedEpisodeCount: 1,
+      popularityScore: 95,
+    });
+
+    createdAnimeIds = [a1._id, a2._id, a3._id];
+
+    // Versions
+    const vMobJa = await AnimeVersion.create({
+      anime: a1._id,
+      audioLanguage: 'Japanese',
+      channelName: 'Muse Asia',
+      verificationStatus: 'verified',
+    });
+
+    const vTrJa = await AnimeVersion.create({
+      anime: a2._id,
+      audioLanguage: 'Japanese',
+      channelName: 'Muse Asia',
+      verificationStatus: 'verified',
+    });
+
+    const vTrHi = await AnimeVersion.create({
+      anime: a2._id,
+      audioLanguage: 'Hindi',
+      channelName: 'Muse India',
+      verificationStatus: 'verified',
+    });
+
+    // Episodes
+    await Episode.create({
+      anime: a1._id,
+      version: vMobJa._id,
+      seasonNumber: 1,
+      episodeNumber: 1,
+      title: 'Self-Proclaimed Psychic',
+      youtubeVideoId: 'vid-mob-1',
+      isPublished: true,
+      verificationStatus: 'verified',
+    });
+
+    await Episode.create({
+      anime: a1._id,
+      version: vMobJa._id,
+      seasonNumber: 1,
+      episodeNumber: 2,
+      title: 'Doubts About Youth',
+      youtubeVideoId: 'vid-mob-2',
+      isPublished: true,
+      verificationStatus: 'verified',
+    });
+
+    await Episode.create({
+      anime: a2._id,
+      version: vTrJa._id,
+      seasonNumber: 1,
+      episodeNumber: 1,
+      title: 'Reborn',
+      youtubeVideoId: 'vid-tr-ja-1',
+      isPublished: true,
+      verificationStatus: 'verified',
+    });
+
+    await Episode.create({
+      anime: a2._id,
+      version: vTrHi._id,
+      seasonNumber: 1,
+      episodeNumber: 1,
+      title: 'Reborn (Hindi Dub)',
+      youtubeVideoId: 'vid-tr-hi-1',
+      isPublished: true,
+      verificationStatus: 'verified',
+    });
+  });
+
+  after(async () => {
+    await Anime.deleteMany({ _id: { $in: createdAnimeIds } });
+    await AnimeVersion.deleteMany({ anime: { $in: createdAnimeIds } });
+    await Episode.deleteMany({ anime: { $in: createdAnimeIds } });
+    await mongoose.disconnect();
+  });
+
   test('getCatalogue should return paginated anime titles', async () => {
     const result = await CatalogueService.getCatalogue({ page: 1, limit: 6 });
     assert.ok(result.items.length > 0, 'Should return anime items');

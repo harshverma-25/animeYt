@@ -1,21 +1,37 @@
 'use client';
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Sparkles, ArrowLeft } from 'lucide-react';
 import AnimeCard from '@/components/AnimeCard';
-import { getAnimeByGenre, GENRE_COLORS } from '@/data/anime';
+import { GENRE_COLORS } from '@/data/anime';
 
 export default function GenrePage() {
   const params = useParams();
   const genreParam = (params?.genre as string) || '';
   const genreName = genreParam.charAt(0).toUpperCase() + genreParam.slice(1);
   const dotColor = GENRE_COLORS[genreName] || '#FF5A7A';
-  const animeList = getAnimeByGenre(genreParam);
+
+  const [animeList, setAnimeList] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!genreParam) return;
+    setLoading(true);
+    fetch(`/api/catalogue?genre=${encodeURIComponent(genreParam)}&limit=50`)
+      .then((r) => r.json())
+      .then((data) => {
+        setAnimeList(data.items || []);
+        setLoading(false);
+      })
+      .catch(() => {
+        setAnimeList([]);
+        setLoading(false);
+      });
+  }, [genreParam]);
 
   return (
     <div className="flex flex-col gap-8 w-full">
-      {/* Header Glass Card */}
       <div className="glass rounded-[36px] p-6 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-5">
         <div className="flex items-center gap-4">
           <div
@@ -35,7 +51,7 @@ export default function GenrePage() {
               {genreName} Anime
             </h1>
             <p className="text-[14px] text-white/65 mt-0.5">
-              Explore officially licensed {genreName} anime series streamed directly on YouTube.
+              Officially licensed {genreName} anime series streamed directly on YouTube.
             </p>
           </div>
         </div>
@@ -45,14 +61,14 @@ export default function GenrePage() {
         </div>
       </div>
 
-      {/* Anime Grid */}
-      {animeList.length > 0 ? (
-        <div
-          className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4"
-          
-        >
+      {loading ? (
+        <div className="glass rounded-[32px] p-12 text-center text-white/60">
+          Loading {genreName} anime...
+        </div>
+      ) : animeList.length > 0 ? (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
           {animeList.map((anime) => (
-            <AnimeCard key={anime.id} anime={anime} />
+            <AnimeCard key={anime.id || anime.slug} anime={anime} />
           ))}
         </div>
       ) : (

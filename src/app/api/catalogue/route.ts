@@ -1,49 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { CatalogueService } from '@/lib/services/catalogueService';
-import { CatalogueQueryParams } from '@/types/anime';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const query = searchParams.get('query') || undefined;
-    const audioLanguage = searchParams.get('audio') || undefined;
-    const subtitleLanguage = searchParams.get('sub') || undefined;
+    const query = searchParams.get('q') || searchParams.get('query') || undefined;
     const genre = searchParams.get('genre') || undefined;
-    const sortBy = (searchParams.get('sort') as CatalogueQueryParams['sortBy']) || 'popular';
+    const audioLanguage = searchParams.get('lang') || searchParams.get('audioLanguage') || undefined;
+    const sortBy = (searchParams.get('sort') || searchParams.get('sortBy') || 'popular') as any;
     const page = parseInt(searchParams.get('page') || '1', 10);
-    const limit = parseInt(searchParams.get('limit') || '12', 10);
+    const limit = parseInt(searchParams.get('limit') || '20', 10);
+    const verifiedOnly = searchParams.get('verifiedOnly') === 'true';
 
     const result = await CatalogueService.getCatalogue({
       query,
-      audioLanguage,
-      subtitleLanguage,
       genre,
+      audioLanguage,
       sortBy,
       page,
       limit,
+      verifiedOnly,
     });
 
-    const [genres, audioLanguages] = await Promise.all([
-      CatalogueService.getGenres(),
-      CatalogueService.getAudioLanguages(),
-    ]);
-
-    return NextResponse.json({
-      success: true,
-      data: result,
-      filters: {
-        genres,
-        audioLanguages,
-      },
-    });
-  } catch (error) {
-    console.error('API /api/catalogue error:', error);
+    return NextResponse.json(result);
+  } catch (err) {
+    console.error('API /api/catalogue error:', err);
     return NextResponse.json(
-      {
-        success: false,
-        error: 'Failed to fetch anime catalogue',
-        message: (error as Error).message,
-      },
+      { error: 'Failed to retrieve anime catalogue', items: [], total: 0 },
       { status: 500 }
     );
   }

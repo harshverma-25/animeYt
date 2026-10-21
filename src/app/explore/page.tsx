@@ -1,9 +1,9 @@
 'use client';
-import React, { useState, useMemo, Suspense } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Filter, ArrowUpDown } from 'lucide-react';
 import AnimeCard from '@/components/AnimeCard';
-import { ANIME_LIST, GENRE_COLORS } from '@/data/anime';
+import { GENRE_COLORS } from '@/data/anime';
 
 function ExploreContent() {
   const searchParams = useSearchParams();
@@ -14,43 +14,54 @@ function ExploreContent() {
   const [selectedGenre, setSelectedGenre] = useState(initialGenre);
   const [selectedLang, setSelectedLang] = useState(initialLang);
   const [sortBy, setSortBy] = useState(initialSort);
-  const [visibleCount, setVisibleCount] = useState(10); // Multiple of 5
+  const [page, setPage] = useState(1);
+  const [animeList, setAnimeList] = useState<any[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const genres = ['All', 'Action', 'Adventure', 'Comedy', 'Fantasy', 'Romance', 'Sci-Fi', 'Thriller'];
   const languages = ['All', 'Hindi', 'English', 'Japanese'];
 
-  const filteredAnime = useMemo(() => {
-    let list = [...ANIME_LIST];
+  // Fetch real data from MongoDB API
+  useEffect(() => {
+    let isCancelled = false;
+    setLoading(true);
 
-    if (selectedGenre !== 'All') {
-      list = list.filter((a) =>
-        a.genres.some((g) => g.toLowerCase() === selectedGenre.toLowerCase())
-      );
-    }
+    const queryParams = new URLSearchParams();
+    if (selectedGenre !== 'All') queryParams.set('genre', selectedGenre);
+    if (selectedLang !== 'All') queryParams.set('lang', selectedLang);
+    if (sortBy) queryParams.set('sort', sortBy);
+    queryParams.set('page', '1');
+    queryParams.set('limit', String(page * 10));
 
-    if (selectedLang !== 'All') {
-      list = list.filter((a) =>
-        a.languages.some((l) => l.toLowerCase() === selectedLang.toLowerCase())
-      );
-    }
+    fetch(`/api/catalogue?${queryParams.toString()}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (!isCancelled) {
+          setAnimeList(data.items || []);
+          setTotalCount(data.total || 0);
+          setHasMore(data.hasMore || false);
+          setLoading(false);
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to fetch catalogue:', err);
+        if (!isCancelled) {
+          setAnimeList([]);
+          setTotalCount(0);
+          setLoading(false);
+        }
+      });
 
-    if (sortBy === 'popular') {
-      list.sort((a, b) => (b.isPopular ? 1 : 0) - (a.isPopular ? 1 : 0));
-    } else if (sortBy === 'recent') {
-      list.sort((a, b) => b.releaseYear - a.releaseYear);
-    } else if (sortBy === 'title') {
-      list.sort((a, b) => a.title.localeCompare(b.title));
-    }
-
-    return list;
-  }, [selectedGenre, selectedLang, sortBy]);
-
-  const displayed = filteredAnime.slice(0, visibleCount);
-  const hasMore = visibleCount < filteredAnime.length;
+    return () => {
+      isCancelled = true;
+    };
+  }, [selectedGenre, selectedLang, sortBy, page]);
 
   return (
     <div className="flex flex-col gap-6 w-full">
-      {/* Glass Filter Bar (Starts directly without header card) */}
+      {/* Glass Filter Bar */}
       <div className="glass rounded-[30px] p-5 flex flex-col gap-4">
         {/* Genre Chips with Colored Dots */}
         <div className="flex flex-col gap-2">
@@ -60,7 +71,7 @@ function ExploreContent() {
               GENRES
             </span>
             <span className="text-[12px] font-semibold text-[#FF8FB4]">
-              {filteredAnime.length} Titles Found
+              {totalCount} Titles Found
             </span>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
@@ -71,7 +82,10 @@ function ExploreContent() {
                 <button
                   key={g}
                   type="button"
-                  onClick={() => setSelectedGenre(g)}
+                  onClick={() => {
+                    setSelectedGenre(g);
+                    setPage(1);
+                  }}
                   className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[12.5px] font-semibold transition-all ${
                     isActive
                       ? 'bg-white text-[#1A1428] shadow-md'
@@ -103,7 +117,10 @@ function ExploreContent() {
                 <button
                   key={l}
                   type="button"
-                  onClick={() => setSelectedLang(l)}
+                  onClick={() => {
+                    setSelectedLang(l);
+                    setPage(1);
+                  }}
                   className={`px-3 py-1 rounded-full text-[12px] font-medium transition-all ${
                     isActive
                       ? 'bg-[#D81B60] text-white shadow-sm'
@@ -120,7 +137,10 @@ function ExploreContent() {
             <ArrowUpDown strokeWidth={1.8} className="w-4 h-4 text-white/50" />
             <select
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
+              onChange={(e) => {
+                setSortBy(e.target.value);
+                setPage(1);
+              }}
               className="glass rounded-full px-4 py-1.5 text-[12.5px] font-semibold text-white bg-[#1A122E] outline-none cursor-pointer border border-white/20"
               aria-label="Sort anime by"
             >
@@ -133,10 +153,14 @@ function ExploreContent() {
       </div>
 
       {/* 5 Cards in a row Grid */}
-      {displayed.length > 0 ? (
+      {loading && animeList.length === 0 ? (
+        <div className="glass rounded-[32px] p-12 text-center text-white/60">
+          Loading anime catalogue...
+        </div>
+      ) : animeList.length > 0 ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-          {displayed.map((anime) => (
-            <AnimeCard key={anime.id} anime={anime} />
+          {animeList.map((anime) => (
+            <AnimeCard key={anime.id || anime.slug} anime={anime} />
           ))}
         </div>
       ) : (
@@ -147,6 +171,7 @@ function ExploreContent() {
             onClick={() => {
               setSelectedGenre('All');
               setSelectedLang('All');
+              setPage(1);
             }}
             className="btn-secondary text-[14px] px-6 py-2.5"
           >
@@ -159,7 +184,7 @@ function ExploreContent() {
       {hasMore && (
         <div className="flex justify-center mt-4">
           <button
-            onClick={() => setVisibleCount((prev) => prev + 5)}
+            onClick={() => setPage((prev) => prev + 1)}
             className="glass btn-secondary px-8 py-2.5 rounded-full text-[13.5px] font-semibold text-white hover:bg-white/20 transition-all shadow-lg"
           >
             Load More Titles

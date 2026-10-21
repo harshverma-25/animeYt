@@ -10,15 +10,19 @@ const AnimeVersionSchema = new Schema<AnimeVersionDocument>(
   {
     anime: { type: Schema.Types.ObjectId, ref: 'Anime', required: true, index: true },
     audioLanguage: { type: String, required: true, index: true },
+    languageCode: { type: String, default: 'ja', index: true },
+    displayTitle: { type: String },
     subtitleLanguages: [{ type: String, trim: true, index: true }],
     sourceChannel: { type: Schema.Types.ObjectId, ref: 'SourceChannel' },
     channelName: { type: String, required: true },
     verificationStatus: {
       type: String,
-      enum: ['verified', 'unverified', 'unavailable'],
+      enum: ['discovered', 'pending_review', 'verified', 'unverified', 'rejected', 'unavailable'],
       default: 'unverified',
       index: true,
     },
+    verificationNotes: { type: String },
+    verifiedAt: { type: Date },
   },
   {
     timestamps: true,

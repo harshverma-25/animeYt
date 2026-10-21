@@ -18,12 +18,21 @@ const EpisodeSchema = new Schema<EpisodeDocument>(
     publicationDate: { type: Date },
     verificationStatus: {
       type: String,
-      enum: ['verified', 'unverified', 'unavailable'],
+      enum: ['discovered', 'pending_review', 'verified', 'unverified', 'rejected', 'unavailable'],
       default: 'unverified',
       index: true,
     },
+    isPublished: { type: Boolean, default: false, index: true },
+    isEmbeddable: { type: Boolean, default: true },
     duration: { type: String },
     thumbnail: { type: String },
+    sourceChannelName: { type: String },
+    sourceChannelId: { type: String },
+    languageCode: { type: String, default: 'ja' },
+    verifiedAt: { type: Date },
+    verifiedBy: { type: String },
+    verificationNotes: { type: String },
+    lastAvailabilityCheckAt: { type: Date },
   },
   {
     timestamps: true,
@@ -32,7 +41,7 @@ const EpisodeSchema = new Schema<EpisodeDocument>(
 
 // Unique compound index so an episode for a version is distinct
 EpisodeSchema.index({ version: 1, seasonNumber: 1, episodeNumber: 1 }, { unique: true });
-EpisodeSchema.index({ anime: 1, seasonNumber: 1, episodeNumber: 1 });
+EpisodeSchema.index({ anime: 1, isPublished: 1, verificationStatus: 1 });
 
 export const Episode: Model<EpisodeDocument> =
   mongoose.models.Episode || mongoose.model<EpisodeDocument>('Episode', EpisodeSchema);
