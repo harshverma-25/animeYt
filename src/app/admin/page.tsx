@@ -16,7 +16,15 @@ import {
 export default function AdminPage() {
   const [secretKey, setSecretKey] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [activeTab, setActiveTab] = useState<'anilist' | 'candidates' | 'availability' | 'jobs'>('anilist');
+  const [activeTab, setActiveTab] = useState<'manifest' | 'anilist' | 'candidates' | 'availability' | 'jobs'>('manifest');
+
+  // Manifest Import State
+  const [manifestBatchSize, setManifestBatchSize] = useState(10);
+  const [manifestStartIndex, setManifestStartIndex] = useState(0);
+  const [manifestFilterLang, setManifestFilterLang] = useState('');
+  const [manifestAutoVerify, setManifestAutoVerify] = useState(false);
+  const [importingManifest, setImportingManifest] = useState(false);
+  const [manifestReport, setManifestReport] = useState<any>(null);
 
   // AniList Import State
   const [anilistPages, setAnilistPages] = useState(2);
@@ -62,6 +70,30 @@ export default function AdminPage() {
     'Content-Type': 'application/json',
     'x-admin-secret': secretKey.trim() || 'animeyt-admin-dev-key',
   });
+
+  // 0. Run Manifest Import
+  const handleRunManifestImport = async () => {
+    setImportingManifest(true);
+    setManifestReport(null);
+    try {
+      const res = await fetch('/api/admin/import/manifest', {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({
+          batchSize: manifestBatchSize,
+          startIndex: manifestStartIndex,
+          filterLanguage: manifestFilterLang || undefined,
+          autoVerifyEligible: manifestAutoVerify,
+        }),
+      });
+      const data = await res.json();
+      setManifestReport(data);
+    } catch (err) {
+      setManifestReport({ error: (err as Error).message });
+    } finally {
+      setImportingManifest(false);
+    }
+  };
 
   // 1. Run AniList Import
   const handleRunAniListImport = async () => {
@@ -245,6 +277,14 @@ export default function AdminPage() {
         {/* Tab Controls */}
         <div className="glass-chip rounded-full p-1 flex items-center gap-1 self-start md:self-auto flex-wrap">
           <button
+            onClick={() => setActiveTab('manifest')}
+            className={`px-3.5 py-1.5 rounded-full text-[12.5px] font-semibold transition-all ${
+              activeTab === 'manifest' ? 'bg-[#D81B60] text-white' : 'text-white/70 hover:text-white'
+            }`}
+          >
+            Manifest Importer
+          </button>
+          <button
             onClick={() => setActiveTab('anilist')}
             className={`px-3.5 py-1.5 rounded-full text-[12.5px] font-semibold transition-all ${
               activeTab === 'anilist' ? 'bg-[#D81B60] text-white' : 'text-white/70 hover:text-white'
@@ -278,6 +318,119 @@ export default function AdminPage() {
           </button>
         </div>
       </div>
+
+      {/* Tab 0: Manifest Importer */}
+      {activeTab === 'manifest' && (
+        <div className="glass rounded-[32px] p-6 flex flex-col gap-5 max-w-4xl">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-[11px] font-bold text-[#FF8FB4] px-2.5 py-0.5 rounded-full bg-[#D81B60]/20">
+                145 CATALOGUE TITLES
+              </span>
+            </div>
+            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              <Sparkles strokeWidth={1.8} className="w-5 h-5 text-[#FF8FB4]" />
+              Official YouTube Catalogue Manifest Importer
+            </h2>
+            <p className="text-xs text-white/60 mt-1 leading-relaxed">
+              Processes the supplied catalogue (Hindi dubs, English dubs, Japanese subbed titles from Muse India, Ani-One India, Pokémon, TMS, Gundam, and VIZ Media). Resolves canonical metadata via AniList, discovers real YouTube candidates, performs embed availability checks, and publishes only strictly verified episodes.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className="text-xs font-semibold text-white/70 block mb-1">
+                Batch Size
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="50"
+                value={manifestBatchSize}
+                onChange={(e) => setManifestBatchSize(parseInt(e.target.value, 10) || 5)}
+                className="glass rounded-xl px-3 py-2 text-sm text-white bg-transparent w-full"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-white/70 block mb-1">
+                Start Index (0 to 144)
+              </label>
+              <input
+                type="number"
+                min="0"
+                max="144"
+                value={manifestStartIndex}
+                onChange={(e) => setManifestStartIndex(parseInt(e.target.value, 10) || 0)}
+                className="glass rounded-xl px-3 py-2 text-sm text-white bg-transparent w-full"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-white/70 block mb-1">
+                Language Filter (Optional)
+              </label>
+              <select
+                value={manifestFilterLang}
+                onChange={(e) => setManifestFilterLang(e.target.value)}
+                className="glass rounded-xl px-3 py-2 text-sm text-white bg-[#1A122E] w-full outline-none"
+              >
+                <option value="">All Languages</option>
+                <option value="Hindi">Hindi Dubs</option>
+                <option value="English">English Dubs</option>
+                <option value="Japanese">Japanese Subbed</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 pt-1">
+            <input
+              type="checkbox"
+              id="autoVerify"
+              checked={manifestAutoVerify}
+              onChange={(e) => setManifestAutoVerify(e.target.checked)}
+              className="accent-[#D81B60] w-4 h-4 rounded cursor-pointer"
+            />
+            <label htmlFor="autoVerify" className="text-xs text-white/80 cursor-pointer font-medium">
+              Strictly publish candidates meeting all 8 verification criteria (embeddable, authorized channel, language match)
+            </label>
+          </div>
+
+          <button
+            onClick={handleRunManifestImport}
+            disabled={importingManifest}
+            className="btn-primary w-fit text-sm px-6 gap-2"
+          >
+            <RefreshCw strokeWidth={1.8} className={`w-4 h-4 ${importingManifest ? 'animate-spin' : ''}`} />
+            <span>{importingManifest ? 'Processing Manifest Batch...' : 'Import Manifest Batch'}</span>
+          </button>
+
+          {manifestReport && (
+            <div className="flex flex-col gap-3 mt-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <div className="glass-chip rounded-2xl p-3 text-center">
+                  <div className="text-[11px] text-white/50">Processed</div>
+                  <div className="text-base font-extrabold text-white mt-0.5">{manifestReport.totalManifestEntriesProcessed}</div>
+                </div>
+                <div className="glass-chip rounded-2xl p-3 text-center">
+                  <div className="text-[11px] text-white/50">Canonical Matched</div>
+                  <div className="text-base font-extrabold text-emerald-400 mt-0.5">{manifestReport.matchedCanonicalAnime?.length || 0}</div>
+                </div>
+                <div className="glass-chip rounded-2xl p-3 text-center">
+                  <div className="text-[11px] text-white/50">Candidates Discovered</div>
+                  <div className="text-base font-extrabold text-[#FF8FB4] mt-0.5">{manifestReport.realCandidatesDiscoveredCount || 0}</div>
+                </div>
+                <div className="glass-chip rounded-2xl p-3 text-center">
+                  <div className="text-[11px] text-white/50">Episodes Published</div>
+                  <div className="text-base font-extrabold text-[#D81B60] mt-0.5">{manifestReport.episodesApprovedAndPublishedCount || 0}</div>
+                </div>
+              </div>
+
+              <div className="glass-chip rounded-2xl p-4 text-xs font-mono text-white/80 max-h-96 overflow-y-auto whitespace-pre-wrap">
+                {JSON.stringify(manifestReport, null, 2)}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Tab 1: AniList Metadata Import */}
       {activeTab === 'anilist' && (

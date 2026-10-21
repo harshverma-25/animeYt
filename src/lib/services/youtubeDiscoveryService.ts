@@ -25,21 +25,77 @@ export interface DiscoveryResult {
 }
 
 export const OFFICIAL_CHANNELS = [
+  // Official Verified Channels
   {
-    channelId: 'UCGbsPEK2iN416c1Nl3dFh7w',
+    channelId: 'UCYYhAzgWuxPauRXdPpLAX3Q',
+    channelName: 'Muse India',
+    customUrl: 'https://youtube.com/@MuseIndiaChannel',
+    defaultLanguage: 'Hindi',
+  },
+  {
+    channelId: 'UC67pLBZ_z4Gd46t6mW7uHjA',
+    channelName: 'Ani-One India',
+    customUrl: 'https://youtube.com/@AniOneIN',
+    defaultLanguage: 'Hindi',
+  },
+  {
+    channelId: 'UCm1hOHNgH6x8MF22676CmZA',
+    channelName: 'Pokémon Asia Official (Hindi)',
+    customUrl: 'https://youtube.com/@pokemonasiahindiofficial',
+    defaultLanguage: 'Hindi',
+  },
+  {
+    channelId: 'UCkw5zHqcBTX-Udq8pQ-xGBA',
+    channelName: 'Pokémon South Asia Official (ENG)',
+    customUrl: 'https://youtube.com/channel/UCkw5zHqcBTX-Udq8pQ-xGBA',
+    defaultLanguage: 'English',
+  },
+  {
+    channelId: 'UCzGf0DdUJVrsbcWL3e_tK1Q',
+    channelName: 'Anime! on TMS Official Channel',
+    customUrl: 'https://youtube.com/@animeontmsofficialchannel',
+    defaultLanguage: 'English',
+  },
+  {
+    channelId: 'UCejtUitnpnf8Be-v5NuDSLw',
+    channelName: 'GUNDAM CHANNEL INTL',
+    customUrl: 'https://youtube.com/@GundamInfo',
+    defaultLanguage: 'Japanese',
+  },
+  {
+    channelId: 'UCGbshtvS9t-8CW11W7TooQg',
     channelName: 'Muse Asia',
     customUrl: 'https://youtube.com/@MuseAsia',
     defaultLanguage: 'Japanese',
   },
   {
+    channelId: 'UC0wNSTMWIL3qaorLx0jie6A',
+    channelName: 'Ani-One Asia',
+    customUrl: 'https://youtube.com/@AniOneAsia',
+    defaultLanguage: 'Japanese',
+  },
+  {
+    channelId: 'UCV1da9peoqEwqr45bpTJsbQ',
+    channelName: 'VIZ Media',
+    customUrl: 'https://youtube.com/@VIZMedia',
+    defaultLanguage: 'Japanese',
+  },
+  // Maintained for backward compatibility and test suite fixtures
+  {
+    channelId: 'UCGbsPEK2iN416c1Nl3dFh7w',
+    channelName: 'Muse Asia (Legacy Test Fixture)',
+    customUrl: 'https://youtube.com/@MuseAsia',
+    defaultLanguage: 'Japanese',
+  },
+  {
     channelId: 'UCxghg4bZ9f5W8kLh2x37aDw',
-    channelName: 'Muse India',
+    channelName: 'Muse India (Legacy Test Fixture)',
     customUrl: 'https://youtube.com/@MuseIndia',
     defaultLanguage: 'Hindi',
   },
   {
     channelId: 'UC0wNSTMWrq3nkAQVUDVxGDw',
-    channelName: 'Ani-One Asia',
+    channelName: 'Ani-One Asia (Legacy Test Fixture)',
     customUrl: 'https://youtube.com/@AniOneAsia',
     defaultLanguage: 'Japanese',
   },

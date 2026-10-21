@@ -124,6 +124,10 @@ function generateSlug(title: string, id: number): string {
   return base || `anime-${id}`;
 }
 
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function mapStatus(status?: string): AnimeStatus {
   switch (status) {
     case 'RELEASING':
@@ -377,6 +381,140 @@ export class AniListService {
         failedCount,
         status: 'failed',
         errorSummary: lastError,
+      };
+    }
+  }
+
+  /**
+   * Upsert a canonical Anime document from an AniListMedia object.
+   */
+  static async upsertFromMedia(media: AniListMedia): Promise<{
+    success: boolean;
+    anime?: any;
+    status: 'matched';
+    error?: string;
+  }> {
+    await connectToDatabase();
+    const displayTitle =
+      media.title.english || media.title.romaji || media.title.native || 'Untitled Anime';
+    const baseSlug = generateSlug(displayTitle, media.id);
+
+    const existing = await Anime.findOne({
+      $or: [{ anilistId: media.id }, { slug: baseSlug }],
+    });
+
+    const releaseYear =
+      media.seasonYear || media.startDate?.year || new Date().getFullYear();
+    const rating = media.averageScore ? (media.averageScore / 10).toFixed(1) : '8.0';
+
+    const payload = {
+      anilistId: media.id,
+      title: displayTitle,
+      englishTitle: media.title.english || '',
+      romajiTitle: media.title.romaji || '',
+      nativeTitle: media.title.native || '',
+      synopsis: cleanSynopsis(media.description),
+      poster: media.coverImage?.extraLarge || media.coverImage?.large || '',
+      backdrop: media.bannerImage || media.coverImage?.extraLarge || '',
+      genres: media.genres && media.genres.length > 0 ? media.genres : ['Action'],
+      format: media.format || 'TV',
+      releaseYear,
+      status: mapStatus(media.status),
+      popularityScore: media.popularity || 0,
+      rating,
+      externalMetadataSource: 'anilist',
+      metadataLastSyncedAt: new Date(),
+    };
+
+    if (existing) {
+      await Anime.updateOne({ _id: existing._id }, { $set: payload });
+      const updated = await Anime.findById(existing._id);
+      return { success: true, anime: updated, status: 'matched' };
+    } else {
+      let finalSlug = baseSlug;
+      const slugConflict = await Anime.findOne({ slug: finalSlug });
+      if (slugConflict) {
+        finalSlug = `${baseSlug}-${media.id}`;
+      }
+      const created = await Anime.create({
+        ...payload,
+        slug: finalSlug,
+        verifiedEpisodeCount: 0,
+        isFeatured: false,
+      });
+      return { success: true, anime: created, status: 'matched' };
+    }
+  }
+
+  /**
+   * Search for an anime on AniList by title or alias and upsert canonical metadata.
+   * Checks local DB first to avoid duplicate records.
+   */
+  static async resolveAndUpsertByTitle(
+    searchQuery: string,
+    rawTitle?: string
+  ): Promise<{
+    success: boolean;
+    anime?: any;
+    status: 'matched' | 'ambiguous' | 'not_found' | 'error';
+    error?: string;
+  }> {
+    await connectToDatabase();
+
+    const queryClean = searchQuery.trim();
+    const rawClean = (rawTitle || searchQuery).trim();
+
+    // 1. Check local DB first
+    const localMatch = await Anime.findOne({
+      $or: [
+        { title: { $regex: new RegExp(`^${escapeRegex(rawClean)}$`, 'i') } },
+        { englishTitle: { $regex: new RegExp(`^${escapeRegex(rawClean)}$`, 'i') } },
+        { romajiTitle: { $regex: new RegExp(`^${escapeRegex(rawClean)}$`, 'i') } },
+        { title: { $regex: new RegExp(`^${escapeRegex(queryClean)}$`, 'i') } },
+        { englishTitle: { $regex: new RegExp(`^${escapeRegex(queryClean)}$`, 'i') } },
+      ],
+    });
+
+    if (localMatch) {
+      return { success: true, anime: localMatch, status: 'matched' };
+    }
+
+    try {
+      // 2. Query AniList GraphQL API
+      const res = await this.fetchPage(1, 5, queryClean);
+      let mediaList = res.data?.Page?.media || [];
+
+      if (mediaList.length === 0 && rawClean !== queryClean) {
+        // Fallback to rawClean
+        const fallbackRes = await this.fetchPage(1, 5, rawClean);
+        mediaList = fallbackRes.data?.Page?.media || [];
+      }
+
+      if (mediaList.length === 0) {
+        return {
+          success: false,
+          status: 'not_found',
+          error: `Title "${rawTitle || searchQuery}" was not found on AniList`,
+        };
+      }
+
+      // Check for exact match among returned items
+      const exactMatch = mediaList.find((m) => {
+        const eng = (m.title.english || '').toLowerCase();
+        const rom = (m.title.romaji || '').toLowerCase();
+        const nat = (m.title.native || '').toLowerCase();
+        const target = rawClean.toLowerCase();
+        const qTarget = queryClean.toLowerCase();
+        return eng === target || rom === target || nat === target || eng === qTarget || rom === qTarget;
+      });
+
+      const selected = exactMatch || mediaList[0];
+      return this.upsertFromMedia(selected);
+    } catch (err) {
+      return {
+        success: false,
+        status: 'error',
+        error: (err as Error).message,
       };
     }
   }
