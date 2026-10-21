@@ -19,14 +19,18 @@ export default function HomePage() {
   const popular = getPopularAnime();
   const recentlyAdded = getRecentlyAddedAnime();
 
+  // Show 5 or 10 titles to form clean 5-column rows
+  const displayPopular = popular.slice(0, 5);
+  const displayRecentlyAdded = recentlyAdded.slice(0, 5);
+
   return (
-    <div className="flex flex-col gap-9 w-full">
-      {/* Hero row (Full Width without Trending Now) */}
+    <div className="flex flex-col gap-8 w-full">
+      {/* Compact Hero row */}
       <section className="w-full">
         <Hero featuredAnime={featured} />
       </section>
 
-      {/* Section: Popular Anime */}
+      {/* Section: Popular Anime (5 in a row) */}
       <section className="w-full">
         <SectionHeader
           icon={<Flame strokeWidth={1.8} className="w-5 h-5 text-[#FF8FB4]" />}
@@ -35,20 +39,15 @@ export default function HomePage() {
           viewAllHref="/explore?sort=popular"
         />
 
-        {/* Card Grid: repeat(auto-fill, minmax(168px, 1fr)), gap 18 */}
-        <div
-          className="grid gap-[18px]"
-          style={{
-            gridTemplateColumns: 'repeat(auto-fill, minmax(168px, 1fr))',
-          }}
-        >
-          {popular.map((anime) => (
+        {/* 5 Cards in a row */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+          {displayPopular.map((anime) => (
             <AnimeCard key={anime.id} anime={anime} />
           ))}
         </div>
       </section>
 
-      {/* Section: Recently Added */}
+      {/* Section: Recently Added (5 in a row) */}
       <section className="w-full">
         <SectionHeader
           icon={<Clock strokeWidth={1.8} className="w-5 h-5 text-[#FF8FB4]" />}
@@ -57,14 +56,9 @@ export default function HomePage() {
           viewAllHref="/explore?sort=recent"
         />
 
-        {/* Card Grid: repeat(auto-fill, minmax(168px, 1fr)), gap 18 */}
-        <div
-          className="grid gap-[18px]"
-          style={{
-            gridTemplateColumns: 'repeat(auto-fill, minmax(168px, 1fr))',
-          }}
-        >
-          {recentlyAdded.map((anime) => (
+        {/* 5 Cards in a row */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+          {displayRecentlyAdded.map((anime) => (
             <AnimeCard key={anime.id} anime={anime} />
           ))}
         </div>

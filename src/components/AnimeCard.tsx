@@ -11,7 +11,6 @@ interface AnimeCardProps {
 }
 
 export default function AnimeCard({ anime }: AnimeCardProps) {
-  // If passed an IAnime or partial, merge with rich mock data if found
   const fullAnime: AnimeItem =
     'themeGradient' in anime
       ? (anime as AnimeItem)
@@ -42,38 +41,43 @@ export default function AnimeCard({ anime }: AnimeCardProps) {
   return (
     <Link
       href={watchHref}
-      className="glass anime-card-hover group flex flex-col rounded-[32px] p-2.5 text-left cursor-pointer relative overflow-hidden"
-      aria-label={`Watch ${fullAnime.title.includes(':') ? fullAnime.title.split(':')[0] : fullAnime.title}`}
+      className="glass anime-card-hover group flex flex-col rounded-[26px] p-2 sm:p-2.5 text-left cursor-pointer relative overflow-hidden h-full justify-between"
+      aria-label={`Watch ${fullAnime.title}`}
     >
-      {/* 3/4 Poster with 24px radius & glass chip */}
-      <AnimePoster
-        title={fullAnime.title}
-        episodeCount={fullAnime.totalEpisodes}
-        themeGradient={fullAnime.themeGradient}
-        thumbnailUrl={
-          firstEpisode
-            ? `https://img.youtube.com/vi/${firstEpisode.youtubeVideoId}/hqdefault.jpg`
-            : fullAnime.poster || undefined
-        }
-      />
+      <div>
+        {/* Compact Aspect 16/10 Poster */}
+        <AnimePoster
+          title={fullAnime.title}
+          episodeCount={fullAnime.totalEpisodes}
+          themeGradient={fullAnime.themeGradient}
+          thumbnailUrl={
+            firstEpisode
+              ? `https://img.youtube.com/vi/${firstEpisode.youtubeVideoId}/hqdefault.jpg`
+              : fullAnime.poster || undefined
+          }
+        />
 
-      {/* Info Section */}
-      <div className="pt-3 pb-1 px-1 flex flex-col flex-1 justify-between">
-        <div>
-          <h3 className="text-[16px] font-semibold text-white leading-tight line-clamp-1 group-hover:text-[#FF8FB4] transition-colors">
+        {/* Info Section */}
+        <div className="pt-2.5 pb-1 px-1">
+          {/* Title: 2 lines with min-h to keep all cards in row perfectly aligned */}
+          <h3
+            className="text-[14px] sm:text-[14.5px] font-semibold text-white leading-snug line-clamp-2 min-h-[2.5rem] group-hover:text-[#FF8FB4] transition-colors"
+            title={fullAnime.title}
+          >
             {fullAnime.title}
           </h3>
-          <p className="text-[12.5px] text-white/70 mt-1 line-clamp-1 font-medium">
+
+          <p className="text-[11.5px] text-white/60 mt-1 truncate font-medium">
             {fullAnime.releaseYear} • {fullAnime.genres.join(', ')}
           </p>
         </div>
+      </div>
 
-        {/* Language tags */}
-        <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
-          {fullAnime.languages.map((lang: string) => (
-            <LanguageTag key={lang} language={lang} />
-          ))}
-        </div>
+      {/* Language tags at bottom */}
+      <div className="flex flex-wrap items-center gap-1 mt-2 px-1 pb-1">
+        {fullAnime.languages.map((lang: string) => (
+          <LanguageTag key={lang} language={lang} className="text-[10px] px-2 py-0.5" />
+        ))}
       </div>
     </Link>
   );

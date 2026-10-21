@@ -44,10 +44,8 @@ export default function WatchlistPage() {
       {/* Grid or Empty State */}
       {savedItems.length > 0 ? (
         <div
-          className="grid gap-[18px]"
-          style={{
-            gridTemplateColumns: 'repeat(auto-fill, minmax(168px, 1fr))',
-          }}
+          className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4"
+          
         >
           {savedItems.map((anime) => (
             <AnimeCard key={anime.id} anime={anime} />
