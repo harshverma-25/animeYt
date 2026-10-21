@@ -1,3 +1,5 @@
+'use client';
+
 import Link from 'next/link';
 import { IAnime } from '@/types/anime';
 import { Play } from 'lucide-react';
@@ -10,15 +12,15 @@ interface AnimeCardProps {
 }
 
 export default function AnimeCard({ anime }: AnimeCardProps) {
-  const languages = anime.availableAudioLanguages || [];
+  const languages = anime.availableAudioLanguages || ['Japanese'];
 
   return (
     <Link
       href={`/anime/${anime.slug}`}
-      className="group flex flex-col bg-[#191920] rounded-xl border border-[#30303A] overflow-hidden hover:border-[#FF3D69]/60 hover:shadow-md hover:shadow-[#FF3D69]/5 transition-all duration-200"
+      className="group flex flex-col bg-[#16161F]/90 rounded-2xl border border-[#282835] overflow-hidden hover:border-[#FF3D69]/60 hover:shadow-xl hover:shadow-[#FF3D69]/5 transition-all duration-200"
     >
-      {/* Poster Image Container */}
-      <div className="relative aspect-[3/4] w-full overflow-hidden bg-[#15151C]">
+      {/* 2:3 Portrait Poster */}
+      <div className="relative aspect-[2/3] w-full overflow-hidden bg-[#111117]">
         <img
           src={anime.poster}
           alt={anime.title}
@@ -33,51 +35,45 @@ export default function AnimeCard({ anime }: AnimeCardProps) {
           </div>
         </div>
 
-        {/* Total verified episodes badge */}
+        {/* Episode Count Badge */}
         {typeof anime.totalEpisodes === 'number' && anime.totalEpisodes > 0 && (
-          <span className="absolute bottom-2 right-2 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-black/75 text-[#F4F4F7] border border-white/10 backdrop-blur-sm">
-            {anime.totalEpisodes} {anime.totalEpisodes === 1 ? 'EP' : 'EPS'}
-          </span>
-        )}
-
-        {/* Featured pill if applicable */}
-        {anime.isFeatured && (
-          <span className="absolute top-2 left-2 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[#FF3D69] text-white">
-            Featured
+          <span className="absolute bottom-2 right-2 text-[10px] font-bold px-2 py-0.5 rounded bg-black/85 text-[#F5F5F7] border border-white/10 backdrop-blur-sm font-mono">
+            {anime.totalEpisodes} EPS
           </span>
         )}
       </div>
 
-      {/* Anime Info */}
-      <div className="p-3 flex flex-col flex-1 justify-between gap-1.5">
+      {/* Info Content */}
+      <div className="p-3 sm:p-3.5 flex flex-col flex-1 justify-between gap-1.5">
         <div>
-          <h3 className="text-xs font-semibold text-[#F4F4F7] line-clamp-1 group-hover:text-[#FF3D69] transition-colors">
+          <h3 className="text-xs sm:text-sm font-bold text-[#F5F5F7] truncate group-hover:text-[#FF3D69] transition-colors">
             {anime.title}
           </h3>
-          <div className="flex items-center gap-1.5 text-[11px] text-[#A2A2B2] mt-0.5">
+          <div className="flex items-center gap-1.5 text-[11px] text-[#A1A1B0] mt-0.5 truncate">
             <span>{anime.releaseYear}</span>
             <span>•</span>
-            <span className="line-clamp-1">{anime.genres.slice(0, 2).join(', ')}</span>
+            <span className="truncate">{anime.genres.slice(0, 2).join(', ')}</span>
           </div>
         </div>
 
-        {/* Audio Badges */}
-        {languages.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-1 pt-1 border-t border-[#30303A]/60">
-            {languages.map((lang) => (
+        {/* Audio Badges (Matching Screenshot) */}
+        <div className="flex flex-wrap gap-1.5 pt-1.5 border-t border-[#262633]/80">
+          {languages.map((lang) => {
+            const isHindi = lang.toLowerCase() === 'hindi';
+            return (
               <span
                 key={lang}
-                className={`text-[9px] font-medium px-1.5 py-0.2 rounded border ${
-                  lang.toLowerCase() === 'hindi'
-                    ? 'bg-[#FF3D69]/10 text-[#FF5A81] border-[#FF3D69]/30'
-                    : 'bg-[#202028] text-[#A2A2B2] border-[#30303A]'
+                className={`text-[10px] font-medium px-2 py-0.5 rounded-md border ${
+                  isHindi
+                    ? 'bg-[#FF3D69]/15 text-[#FF5A81] border-[#FF3D69]/40 font-semibold'
+                    : 'bg-[#202029] text-[#A1A1B0] border-[#2D2D3A]'
                 }`}
               >
                 {lang}
               </span>
-            ))}
-          </div>
-        )}
+            );
+          })}
+        </div>
       </div>
     </Link>
   );

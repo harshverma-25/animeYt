@@ -1,8 +1,7 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import './globals.css';
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
+import AppShell from '@/components/AppShell';
 
 export const metadata: Metadata = {
   title: 'AnimeYT — Discover & Watch Official Anime on YouTube',
@@ -17,6 +16,8 @@ export const metadata: Metadata = {
     'Muse Asia',
     'Muse India',
     'Ani-One Asia',
+    'Demon Slayer',
+    'Jujutsu Kaisen',
   ],
   authors: [{ name: 'AnimeYT Team' }],
   openGraph: {
@@ -34,12 +35,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark h-full">
-      <body className="min-h-screen flex flex-col bg-[#101015] text-[#F4F4F7]">
-        <Suspense fallback={<div className="h-14 border-b border-[#30303A] bg-[#101015]" />}>
-          <Navbar />
+      <body className="min-h-screen bg-[#0D0D12] text-[#F5F5F7] antialiased">
+        <Suspense fallback={<div className="min-h-screen bg-[#0D0D12]" />}>
+          <AppShell>{children}</AppShell>
         </Suspense>
-        <main className="flex-1 w-full pb-12">{children}</main>
-        <Footer />
       </body>
     </html>
   );

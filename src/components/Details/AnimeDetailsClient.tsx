@@ -19,7 +19,6 @@ interface AnimeDetailsClientProps {
 }
 
 export default function AnimeDetailsClient({ anime }: AnimeDetailsClientProps) {
-  // Only versions that have verified episodes
   const validVersions = anime.versions.filter(
     (v) => v.verificationStatus === 'verified' && v.episodes.length > 0
   );
@@ -34,12 +33,12 @@ export default function AnimeDetailsClient({ anime }: AnimeDetailsClientProps) {
   const firstEpisode = currentVersion?.episodes[0];
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-8">
+    <div className="space-y-8 pb-12">
       {/* Back button */}
       <div>
         <Link
           href="/explore"
-          className="inline-flex items-center gap-1.5 text-xs text-[#A2A2B2] hover:text-[#F4F4F7] transition-colors"
+          className="inline-flex items-center gap-1.5 text-xs text-[#A1A1B0] hover:text-[#F5F5F7] transition-colors"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
           Back to Catalogue
@@ -47,19 +46,19 @@ export default function AnimeDetailsClient({ anime }: AnimeDetailsClientProps) {
       </div>
 
       {/* Hero Overview Panel */}
-      <div className="relative rounded-2xl border border-[#30303A] bg-[#191920] overflow-hidden">
-        {/* Backdrop if present */}
+      <div className="relative rounded-3xl border border-[#282835] bg-[#14141D] overflow-hidden shadow-2xl">
+        {/* Backdrop */}
         {anime.backdrop && (
           <div
             className="absolute inset-0 bg-cover bg-center opacity-20 filter blur-sm"
             style={{ backgroundImage: `url(${anime.backdrop})` }}
           />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-[#191920] via-[#191920]/80 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#14141D] via-[#14141D]/80 to-transparent" />
 
-        <div className="relative p-6 sm:p-8 flex flex-col md:flex-row gap-8 items-start">
+        <div className="relative p-6 sm:p-8 md:p-10 flex flex-col md:flex-row gap-8 items-start">
           {/* Poster Card */}
-          <div className="w-48 sm:w-56 shrink-0 aspect-[3/4] rounded-xl overflow-hidden border border-[#30303A] shadow-xl bg-black/40">
+          <div className="w-48 sm:w-56 shrink-0 aspect-[2/3] rounded-2xl overflow-hidden border border-[#2D2D3A] shadow-2xl bg-black/40">
             <img
               src={anime.poster}
               alt={anime.title}
@@ -70,30 +69,30 @@ export default function AnimeDetailsClient({ anime }: AnimeDetailsClientProps) {
           {/* Metadata & Actions */}
           <div className="flex-1 space-y-4">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-[#202028] text-[#F4F4F7] border border-[#30303A]">
+              <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-[#202029] text-[#F5F5F7] border border-[#2D2D3A]">
                 {anime.status}
               </span>
-              <span className="flex items-center gap-1 text-[11px] text-[#A2A2B2] bg-[#202028] px-2 py-0.5 rounded border border-[#30303A]">
+              <span className="flex items-center gap-1 text-[11px] text-[#A1A1B0] bg-[#202029] px-2.5 py-0.5 rounded-full border border-[#2D2D3A]">
                 <Calendar className="w-3 h-3" />
                 {anime.releaseYear}
               </span>
-              <span className="flex items-center gap-1 text-[11px] text-[#FF5A81] bg-[#FF3D69]/10 px-2 py-0.5 rounded border border-[#FF3D69]/20">
+              <span className="flex items-center gap-1 text-[11px] text-[#FF5A81] bg-[#FF3D69]/15 px-2.5 py-0.5 rounded-full border border-[#FF3D69]/30 font-semibold">
                 <ShieldCheck className="w-3 h-3" />
                 Verified YouTube Release
               </span>
             </div>
 
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-[#F4F4F7] tracking-tight">
+            <h1 className="text-3xl sm:text-4xl font-extrabold text-[#F5F5F7] tracking-tight">
               {anime.title}
             </h1>
 
             {/* Genres */}
             <div className="flex flex-wrap items-center gap-1.5">
-              <Tag className="w-3.5 h-3.5 text-[#A2A2B2]" />
+              <Tag className="w-3.5 h-3.5 text-[#686878]" />
               {anime.genres.map((g) => (
                 <span
                   key={g}
-                  className="text-xs px-2 py-0.5 rounded-md bg-[#202028] text-[#A2A2B2] border border-[#30303A]"
+                  className="text-xs px-2.5 py-0.5 rounded-lg bg-[#202029] text-[#A1A1B0] border border-[#2D2D3A]"
                 >
                   {g}
                 </span>
@@ -102,10 +101,10 @@ export default function AnimeDetailsClient({ anime }: AnimeDetailsClientProps) {
 
             {/* Synopsis */}
             <div className="space-y-1">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-[#A2A2B2]">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-[#686878]">
                 Synopsis
               </h3>
-              <p className="text-xs sm:text-sm text-[#F4F4F7]/90 leading-relaxed max-w-3xl">
+              <p className="text-xs sm:text-sm text-[#F5F5F7]/90 leading-relaxed max-w-3xl">
                 {anime.synopsis}
               </p>
             </div>
@@ -115,9 +114,9 @@ export default function AnimeDetailsClient({ anime }: AnimeDetailsClientProps) {
               <div className="pt-2">
                 <Link
                   href={`/watch/${anime.slug}/${firstEpisode.id || firstEpisode._id}`}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#FF3D69] hover:bg-[#FF5A81] text-white text-xs sm:text-sm font-semibold shadow-lg shadow-[#FF3D69]/20 transition-all"
+                  className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[#FF3D69] hover:bg-[#FF5A81] text-white text-xs sm:text-sm font-semibold shadow-lg shadow-[#FF3D69]/25 transition-all"
                 >
-                  <Play className="w-4 h-4 fill-current" />
+                  <Play className="w-4 h-4 fill-current ml-0.5" />
                   <span>Start Watching EP 1</span>
                   <span className="text-[11px] opacity-80">
                     ({currentVersion?.audioLanguage} Dub)
@@ -125,7 +124,7 @@ export default function AnimeDetailsClient({ anime }: AnimeDetailsClientProps) {
                 </Link>
               </div>
             ) : (
-              <div className="text-xs text-[#A2A2B2] bg-[#202028] p-3 rounded-lg border border-[#30303A] max-w-md">
+              <div className="text-xs text-[#A1A1B0] bg-[#202029] p-3 rounded-xl border border-[#2D2D3A] max-w-md">
                 Episodes for this title are currently awaiting verification before publication.
               </div>
             )}
@@ -135,23 +134,21 @@ export default function AnimeDetailsClient({ anime }: AnimeDetailsClientProps) {
 
       {/* Language Version & Episodes Section */}
       <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-[#30303A] pb-3">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-[#22222E] pb-3">
           <div className="flex items-center gap-2">
             <Layers className="w-4 h-4 text-[#FF3D69]" />
-            <h2 className="text-base font-bold text-[#F4F4F7]">
+            <h2 className="text-base font-bold text-[#F5F5F7]">
               Available Episodes & Versions
             </h2>
           </div>
 
-          {/* Subtitle languages note */}
           {currentVersion?.subtitleLanguages && currentVersion.subtitleLanguages.length > 0 && (
-            <div className="text-xs text-[#A2A2B2]">
+            <div className="text-xs text-[#A1A1B0]">
               Subtitles: {currentVersion.subtitleLanguages.join(', ')}
             </div>
           )}
         </div>
 
-        {/* Audio version selector tabs */}
         {validVersions.length > 1 && (
           <LanguageSelector
             versions={validVersions}
@@ -160,13 +157,12 @@ export default function AnimeDetailsClient({ anime }: AnimeDetailsClientProps) {
           />
         )}
 
-        {/* Episode list for current selected version */}
         {currentVersion && (
           <div className="space-y-2">
-            <div className="text-xs text-[#A2A2B2] flex items-center justify-between">
+            <div className="text-xs text-[#A1A1B0] flex items-center justify-between">
               <span>
                 Streaming via official partner:{' '}
-                <strong className="text-[#F4F4F7]">{currentVersion.channelName}</strong>
+                <strong className="text-[#F5F5F7]">{currentVersion.channelName}</strong>
               </span>
               <span>{currentVersion.episodes.length} verified episodes</span>
             </div>

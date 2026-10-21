@@ -2,11 +2,10 @@ import { CatalogueService } from '@/lib/services/catalogueService';
 import HomePageClient from '@/components/Home/HomePageClient';
 
 export default async function HomePage() {
-  const [featured, popular, recentlyAdded, availableAudio] = await Promise.all([
+  const [featured, popular, recentlyAdded] = await Promise.all([
     CatalogueService.getFeaturedAnime(),
     CatalogueService.getPopularAnime(12),
     CatalogueService.getRecentlyAddedAnime(12),
-    CatalogueService.getAudioLanguages(),
   ]);
 
   return (
@@ -14,7 +13,6 @@ export default async function HomePage() {
       initialFeatured={featured}
       initialPopular={popular}
       initialRecentlyAdded={recentlyAdded}
-      availableAudio={availableAudio}
     />
   );
 }
