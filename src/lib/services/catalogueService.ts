@@ -24,6 +24,7 @@ const animeDetailsCache = new Map<string, CacheEntry<any>>();
 const animeEpisodesCache = new Map<string, CacheEntry<any>>();
 const homePageCache = new Map<string, CacheEntry<any>>();
 const inFlightRequests = new Map<string, Promise<any>>();
+const detailsInFlightRequests = new Map<string, Promise<any>>();
 const DEFAULT_TTL_MS = 5 * 60 * 1000; // 5 minutes TTL
 
 export class CatalogueService {
@@ -36,6 +37,7 @@ export class CatalogueService {
     animeEpisodesCache.clear();
     homePageCache.clear();
     inFlightRequests.clear();
+    detailsInFlightRequests.clear();
   }
 
   /**
@@ -205,69 +207,102 @@ export class CatalogueService {
   /**
    * Get single anime details by slug or ID with ONLY verified published episodes
    */
-  static async getAnimeBySlug(slugOrId: string): Promise<AnimeWithDetails | null> {
+  static getAnimeBySlug(slugOrId: string): Promise<AnimeWithDetails | null> {
     const cacheKey = slugOrId.toLowerCase();
     const cached = animeDetailsCache.get(cacheKey);
     if (cached && cached.expiry > Date.now()) {
-      return cached.data;
+      return Promise.resolve(cached.data);
     }
 
-    const mongoose = await connectToDatabase();
-    if (!mongoose) return null;
+    if (detailsInFlightRequests.has(cacheKey)) {
+      return detailsInFlightRequests.get(cacheKey)!;
+    }
 
-    const isObjectId = mongoose.Types.ObjectId.isValid(slugOrId) && slugOrId.length === 24;
-    const isNumeric = /^\d+$/.test(slugOrId);
+    const fetchPromise = (async () => {
+      const mongoose = await connectToDatabase();
+      if (!mongoose) return null;
 
-    const query: any = {
-      $or: [
-        { slug: slugOrId.toLowerCase() },
-        ...(isObjectId ? [{ _id: slugOrId }] : []),
-        ...(isNumeric ? [{ anilistId: parseInt(slugOrId, 10) }] : []),
-      ],
-    };
+      const isObjectId = mongoose.Types.ObjectId.isValid(slugOrId) && slugOrId.length === 24;
+      const isNumeric = /^\d+$/.test(slugOrId);
 
-    const anime: any = await Anime.findOne(query).lean();
-    if (!anime) return null;
+      const query: any = isObjectId
+        ? { _id: slugOrId }
+        : isNumeric
+        ? { anilistId: parseInt(slugOrId, 10) }
+        : { slug: slugOrId.toLowerCase() };
 
-    // Fetch versions
-    const versions: any[] = await AnimeVersion.find({
-      anime: anime._id,
-      verificationStatus: 'verified',
-    }).lean();
+      const anime: any = await Anime.findOne(query).lean();
+      if (!anime) return null;
 
-    // Fetch ONLY published, verified episodes
-    const episodes: any[] = await Episode.find({
-      anime: anime._id,
-      isPublished: true,
-      verificationStatus: 'verified',
-    })
-      .sort({ seasonNumber: 1, episodeNumber: 1 })
-      .lean();
+      // Fetch versions and ONLY published, verified episodes in PARALLEL with lean field projection
+      const [versions, episodes] = await Promise.all([
+        AnimeVersion.find({
+          anime: anime._id,
+          verificationStatus: 'verified',
+        }).lean(),
+        Episode.find({
+          anime: anime._id,
+          isPublished: true,
+          verificationStatus: 'verified',
+        })
+          .select('_id version seasonNumber episodeNumber title youtubeVideoId duration thumbnail sourceChannelName isPublished verificationStatus')
+          .sort({ seasonNumber: 1, episodeNumber: 1 })
+          .lean(),
+      ]);
 
-    const versionsWithEpisodes = versions.map((v) => ({
-      ...v,
-      id: v._id.toString(),
-      episodes: episodes
-        .filter((ep) => ep.version.toString() === v._id.toString())
-        .map((ep) => ({
-          ...ep,
+      const episodesByVersion = new Map<string, any[]>();
+      for (const ep of episodes) {
+        const vId = ep.version.toString();
+        let list = episodesByVersion.get(vId);
+        if (!list) {
+          list = [];
+          episodesByVersion.set(vId, list);
+        }
+        list.push({
           id: ep._id.toString(),
-        })),
-    }));
+          _id: ep._id.toString(),
+          version: vId,
+          seasonNumber: ep.seasonNumber,
+          episodeNumber: ep.episodeNumber,
+          title: ep.title,
+          youtubeVideoId: ep.youtubeVideoId,
+          duration: ep.duration || '24:00',
+          thumbnail: ep.thumbnail,
+          sourceChannelName: ep.sourceChannelName,
+          isPublished: true,
+          verificationStatus: ep.verificationStatus,
+        });
+      }
 
-    const availableAudioLanguages = Array.from(
-      new Set(versionsWithEpisodes.map((v) => v.audioLanguage as string))
-    );
+      const versionsWithEpisodes = versions.map((v) => ({
+        ...v,
+        id: v._id.toString(),
+        _id: v._id.toString(),
+        episodes: episodesByVersion.get(v._id.toString()) || [],
+      }));
 
-    const result = {
-      ...anime,
-      id: anime._id.toString(),
-      versions: versionsWithEpisodes,
-      availableAudioLanguages,
-      totalEpisodes: episodes.length,
-    };
-    animeDetailsCache.set(cacheKey, { data: result, expiry: Date.now() + DEFAULT_TTL_MS });
-    return result;
+      const availableAudioLanguages = Array.from(
+        new Set(versionsWithEpisodes.map((v) => v.audioLanguage as string))
+      );
+
+      const plainAnime = JSON.parse(JSON.stringify(anime));
+      const result = {
+        ...plainAnime,
+        _id: anime._id.toString(),
+        id: anime._id.toString(),
+        versions: versionsWithEpisodes,
+        availableAudioLanguages,
+        totalEpisodes: episodes.length,
+      };
+
+      animeDetailsCache.set(cacheKey, { data: result, expiry: Date.now() + DEFAULT_TTL_MS });
+      return result;
+    })().finally(() => {
+      detailsInFlightRequests.delete(cacheKey);
+    });
+
+    detailsInFlightRequests.set(cacheKey, fetchPromise);
+    return fetchPromise;
   }
 
   /**

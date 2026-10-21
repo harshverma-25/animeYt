@@ -1,32 +1,22 @@
-'use client';
-import { useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { redirect } from 'next/navigation';
+import { CatalogueService } from '@/lib/services/catalogueService';
 
-export default function WatchSlugRedirect() {
-  const params = useParams();
-  const router = useRouter();
-  const slug = params?.slug as string;
+export default async function WatchSlugRedirect({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug } = await params;
+  if (!slug) {
+    redirect('/');
+  }
 
-  useEffect(() => {
-    if (!slug) return;
-    fetch(`/api/catalogue/${slug}`)
-      .then((res) => res.json())
-      .then((anime) => {
-        const firstEp = anime?.versions?.[0]?.episodes?.[0];
-        if (firstEp) {
-          router.replace(`/watch/${slug}/${firstEp.id || firstEp.youtubeVideoId}`);
-        } else {
-          router.replace(`/anime/${slug}`);
-        }
-      })
-      .catch(() => {
-        router.replace(`/anime/${slug}`);
-      });
-  }, [slug, router]);
+  const anime = await CatalogueService.getAnimeBySlug(slug);
+  const firstEp = anime?.versions?.[0]?.episodes?.[0];
 
-  return (
-    <div className="glass rounded-[36px] p-12 text-center text-white/70">
-      Loading episode...
-    </div>
-  );
+  if (firstEp) {
+    redirect(`/watch/${slug}/${firstEp.id || firstEp.youtubeVideoId}`);
+  }
+
+  redirect(`/anime/${slug}`);
 }

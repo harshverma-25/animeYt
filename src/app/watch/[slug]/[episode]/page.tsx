@@ -15,26 +15,30 @@ import {
   Bookmark,
 } from 'lucide-react';
 import { useWatchlist } from '@/hooks/useWatchlist';
+import { getCachedAnime, fetchAnimeWithCache } from '@/lib/client/animeCache';
 
 export default function WatchEpisodePage() {
   const params = useParams();
-  const slug = params?.slug as string;
+  const slug = (params?.slug as string) || '';
   const episodeParam = (params?.episode || (params as any)?.episodeId) as string;
 
-  const [anime, setAnime] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [anime, setAnime] = useState<any>(() => getCachedAnime(slug));
+  const [loading, setLoading] = useState<boolean>(() => !getCachedAnime(slug));
   const [copied, setCopied] = useState(false);
   const { isInWatchlist, toggleWatchlist } = useWatchlist();
 
   useEffect(() => {
     if (!slug) return;
-    setLoading(true);
 
-    fetch(`/api/catalogue/${slug}`)
-      .then((res) => {
-        if (!res.ok) throw new Error('Not found');
-        return res.json();
-      })
+    const cached = getCachedAnime(slug);
+    if (cached) {
+      setAnime(cached);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    fetchAnimeWithCache(slug)
       .then((data) => {
         setAnime(data);
         setLoading(false);

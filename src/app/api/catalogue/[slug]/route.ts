@@ -19,7 +19,11 @@ export async function GET(
       return NextResponse.json({ error: 'Anime not found' }, { status: 404 });
     }
 
-    return NextResponse.json(anime);
+    return NextResponse.json(anime, {
+      headers: {
+        'Cache-Control': 'public, max-age=60, s-maxage=300, stale-while-revalidate=600',
+      },
+    });
   } catch (err) {
     console.error('API /api/catalogue/[slug] error:', err);
     return NextResponse.json({ error: 'Failed to fetch anime details' }, { status: 500 });

@@ -16,13 +16,14 @@ import AnimePoster from '@/components/AnimePoster';
 import AnimeCard from '@/components/AnimeCard';
 import LanguageTag from '@/components/LanguageTag';
 import { useWatchlist } from '@/hooks/useWatchlist';
+import { getCachedAnime, fetchAnimeWithCache } from '@/lib/client/animeCache';
 
 export default function AnimeDetailsPage() {
   const params = useParams();
-  const slug = params?.slug as string;
+  const slug = (params?.slug as string) || '';
 
-  const [anime, setAnime] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [anime, setAnime] = useState<any>(() => getCachedAnime(slug));
+  const [loading, setLoading] = useState<boolean>(() => !getCachedAnime(slug));
   const [feedback, setFeedback] = useState<string | null>(null);
   const [selectedVersionIndex, setSelectedVersionIndex] = useState(0);
   const [moreLikeThis, setMoreLikeThis] = useState<any[]>([]);
@@ -31,13 +32,23 @@ export default function AnimeDetailsPage() {
 
   useEffect(() => {
     if (!slug) return;
-    setLoading(true);
 
-    fetch(`/api/catalogue/${slug}`)
-      .then((res) => {
-        if (!res.ok) throw new Error('Not found');
-        return res.json();
-      })
+    const cached = getCachedAnime(slug);
+    if (cached) {
+      setAnime(cached);
+      setLoading(false);
+      const firstGenre = cached.genres?.[0] || 'Action';
+      fetch(`/api/catalogue?genre=${firstGenre}&limit=6`)
+        .then((r) => r.json())
+        .then((rec) => {
+          setMoreLikeThis((rec.items || []).filter((item: any) => item.slug !== slug).slice(0, 5));
+        })
+        .catch(() => {});
+      return;
+    }
+
+    setLoading(true);
+    fetchAnimeWithCache(slug)
       .then((data) => {
         setAnime(data);
         setLoading(false);
