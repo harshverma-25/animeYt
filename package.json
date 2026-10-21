@@ -14,6 +14,7 @@
     "import:all": "tsx --env-file=.env scripts/bulkImportAllAnime.ts"
   },
   "dependencies": {
+    "@vercel/analytics": "^2.0.1",
     "lucide-react": "^1.60.0",
     "mongoose": "^9.11.2",
     "next": "16.4.2",

@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Outfit } from 'next/font/google';
 import './globals.css';
 import AppShell from '@/components/AppShell';
+import { Analytics } from '@vercel/analytics/next';
 
 const outfit = Outfit({
   subsets: ['latin'],
@@ -55,6 +56,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen bg-[#0F0B1A] text-white antialiased font-sans selection:bg-[#D81B60] selection:text-white">
         <AppShell>{children}</AppShell>
+        <Analytics />
       </body>
     </html>
   );
