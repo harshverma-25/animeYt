@@ -58,7 +58,6 @@ export class YouTubeService {
   ): Promise<{
     videos: YouTubeVideoItem[];
     error?: string;
-    isSimulated?: boolean;
   }> {
     const apiKey = this.getApiKey();
     const cacheKey = `playlist_${playlistId}_${maxResults}`;
@@ -72,8 +71,7 @@ export class YouTubeService {
       return {
         videos: [],
         error:
-          'YouTube API key is not configured. Set YOUTUBE_API_KEY in .env.local to enable real YouTube discovery imports.',
-        isSimulated: true,
+          'YouTube API key is not configured. Set YOUTUBE_API_KEY in environment to enable real YouTube discovery imports.',
       };
     }
 
@@ -87,10 +85,13 @@ export class YouTubeService {
       const res = await fetch(url.toString(), { next: { revalidate: 1800 } });
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
+        const reason = errorData.error?.errors?.[0]?.reason || '';
         const message =
           errorData.error?.message || `YouTube API returned HTTP status ${res.status}`;
-        console.error('YouTube API Playlist error:', message);
-        return { videos: [], error: message };
+        const formatted =
+          reason === 'quotaExceeded' ? `YouTube API quota exceeded: ${message}` : message;
+        console.error('YouTube API Playlist error:', formatted);
+        return { videos: [], error: formatted };
       }
 
       const data = await res.json();
@@ -128,7 +129,6 @@ export class YouTubeService {
   ): Promise<{
     videos: YouTubeVideoItem[];
     error?: string;
-    isSimulated?: boolean;
   }> {
     const apiKey = this.getApiKey();
     const cacheKey = `search_${channelId}_${query}_${maxResults}`;
@@ -142,8 +142,7 @@ export class YouTubeService {
       return {
         videos: [],
         error:
-          'YouTube API key is not configured. Set YOUTUBE_API_KEY in .env.local to enable channel search.',
-        isSimulated: true,
+          'YouTube API key is not configured. Set YOUTUBE_API_KEY in environment to enable channel search.',
       };
     }
 
@@ -159,9 +158,12 @@ export class YouTubeService {
       const res = await fetch(url.toString(), { next: { revalidate: 1800 } });
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
+        const reason = errorData.error?.errors?.[0]?.reason || '';
         const message =
           errorData.error?.message || `YouTube API returned HTTP status ${res.status}`;
-        return { videos: [], error: message };
+        const formatted =
+          reason === 'quotaExceeded' ? `YouTube API quota exceeded: ${message}` : message;
+        return { videos: [], error: formatted };
       }
 
       const data = await res.json();

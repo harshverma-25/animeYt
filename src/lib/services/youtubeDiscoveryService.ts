@@ -99,11 +99,43 @@ export class YouTubeDiscoveryService {
     let videos: YouTubeVideoItem[] = [];
     let errorSummary: string | undefined;
 
+    // Validate channelId if explicitly specified
+    if (options.channelId) {
+      const isConfigured = OFFICIAL_CHANNELS.some((c) => c.channelId === options.channelId);
+      const isKnown = await SourceChannel.exists({
+        channelId: options.channelId,
+        officialSourceVerificationStatus: 'verified',
+        isEnabled: true,
+      });
+      if (!isConfigured && !isKnown) {
+        const errorMsg = `Channel ID "${options.channelId}" is not a verified authorized source channel. Configure and verify the channel in Source Channels first.`;
+        await ImportJob.updateOne(
+          { _id: job._id },
+          {
+            $set: {
+              status: 'failed',
+              errorSummary: errorMsg,
+              completedAt: new Date(),
+            },
+          }
+        );
+        return {
+          jobId: job._id.toString(),
+          totalDiscovered: 0,
+          newCandidatesCount: 0,
+          existingCount: 0,
+          failedCount: 1,
+          status: 'failed',
+          errorSummary: errorMsg,
+        };
+      }
+    }
+
     try {
       if (options.playlistId) {
         const res = await YouTubeService.fetchPlaylistVideos(options.playlistId, options.maxResults || 50);
         if (res.error) errorSummary = res.error;
-        videos = res.videos;
+        videos = res.videos || [];
       } else if (options.channelId && options.searchQuery) {
         const res = await YouTubeService.searchChannelVideos(
           options.channelId,
@@ -111,18 +143,18 @@ export class YouTubeDiscoveryService {
           options.maxResults || 25
         );
         if (res.error) errorSummary = res.error;
-        videos = res.videos;
+        videos = res.videos || [];
       } else {
         // Default: discover from approved channel playlists if available or search
         const channel = options.channelId || OFFICIAL_CHANNELS[0].channelId;
         const query = options.searchQuery || options.targetAnimeSlug || 'Episode 1';
         const res = await YouTubeService.searchChannelVideos(channel, query, options.maxResults || 20);
         if (res.error) errorSummary = res.error;
-        videos = res.videos;
+        videos = res.videos || [];
       }
 
       for (const video of videos) {
-        if (!video.videoId) continue;
+        if (!video.videoId || !video.channelId) continue;
         try {
           // Check if candidate already exists
           const existing = await YouTubeCandidate.findOne({ youtubeVideoId: video.videoId });
@@ -172,16 +204,19 @@ export class YouTubeDiscoveryService {
         }
       }
 
+      const isFailed = !!errorSummary;
+      const jobStatus: 'completed' | 'failed' = isFailed ? 'failed' : 'completed';
+
       await ImportJob.updateOne(
         { _id: job._id },
         {
           $set: {
-            status: 'completed',
-            progress: 100,
+            status: jobStatus,
+            progress: isFailed ? 0 : 100,
             processedCount: videos.length,
             insertedCount: newCandidatesCount,
             skippedCount: existingCount,
-            failedCount,
+            failedCount: failedCount + (isFailed ? 1 : 0),
             errorSummary,
             completedAt: new Date(),
           },
@@ -193,8 +228,8 @@ export class YouTubeDiscoveryService {
         totalDiscovered: videos.length,
         newCandidatesCount,
         existingCount,
-        failedCount,
-        status: 'completed',
+        failedCount: failedCount + (isFailed ? 1 : 0),
+        status: jobStatus,
         errorSummary,
       };
     } catch (err) {

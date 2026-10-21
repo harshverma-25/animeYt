@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { YouTubeService } from '@/lib/services/youtubeService';
-import { CatalogueService } from '@/lib/services/catalogueService';
+import { YouTubeDiscoveryService } from '@/lib/services/youtubeDiscoveryService';
 import { isAuthorizedAdmin, unauthorizedResponse } from '@/lib/auth/adminAuth';
+
+export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
   if (!isAuthorizedAdmin(req)) {
@@ -9,8 +10,8 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const body = await req.json();
-    const { type, targetId, animeId, versionId, maxResults = 15 } = body;
+    const body = await req.json().catch(() => ({}));
+    const { type, targetId, maxResults = 20, animeSlug, query } = body;
 
     if (!type || !targetId) {
       return NextResponse.json(
@@ -19,54 +20,29 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    let fetchResult;
-    if (type === 'playlist') {
-      fetchResult = await YouTubeService.fetchPlaylistVideos(targetId, maxResults);
-    } else {
-      const query = body.query || 'Anime Episode';
-      fetchResult = await YouTubeService.searchChannelVideos(targetId, query, maxResults);
-    }
+    const result = await YouTubeDiscoveryService.discoverCandidates({
+      playlistId: type === 'playlist' ? targetId : undefined,
+      channelId: type === 'channel' ? targetId : undefined,
+      searchQuery: query,
+      targetAnimeSlug: animeSlug,
+      maxResults,
+    });
 
-    if (fetchResult.error && !fetchResult.videos.length) {
+    if (result.status === 'failed') {
       return NextResponse.json(
         {
           success: false,
-          error: fetchResult.error,
-          isSimulated: fetchResult.isSimulated,
+          error: result.errorSummary || 'YouTube discovery failed',
+          jobId: result.jobId,
         },
         { status: 400 }
       );
     }
 
-    const importedEpisodes = [];
-    if (animeId && versionId) {
-      for (const v of fetchResult.videos) {
-        const epNum = YouTubeService.parseEpisodeNumber(v.title);
-        const added = await CatalogueService.addEpisode({
-          animeId,
-          versionId,
-          seasonNumber: 1,
-          episodeNumber: epNum,
-          title: v.title,
-          youtubeVideoId: v.videoId,
-          playlistId: v.playlistId,
-          verificationStatus: 'unverified', // verification workflow: unverified by default!
-          duration: '24:00',
-          thumbnail: v.thumbnailUrl,
-        });
-        importedEpisodes.push(added);
-      }
-    }
-
     return NextResponse.json({
       success: true,
-      message: `Retrieved ${fetchResult.videos.length} videos from YouTube. ${
-        importedEpisodes.length > 0
-          ? `Imported ${importedEpisodes.length} as unverified episodes awaiting admin review.`
-          : 'Ready for assignment.'
-      }`,
-      videos: fetchResult.videos,
-      importedEpisodes,
+      message: `Discovered ${result.newCandidatesCount} new candidate videos awaiting admin review. Candidates are never auto-published.`,
+      result,
     });
   } catch (error) {
     return NextResponse.json(

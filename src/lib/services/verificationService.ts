@@ -3,6 +3,8 @@ import { Anime } from '@/lib/db/models/Anime';
 import { AnimeVersion } from '@/lib/db/models/AnimeVersion';
 import { Episode } from '@/lib/db/models/Episode';
 import { YouTubeCandidate } from '@/lib/db/models/YouTubeCandidate';
+import { SourceChannel } from '@/lib/db/models/SourceChannel';
+import { OFFICIAL_CHANNELS } from './youtubeDiscoveryService';
 
 export interface VerifyCandidatePayload {
   candidateId: string;
@@ -27,6 +29,19 @@ export class VerificationService {
     const candidate = await YouTubeCandidate.findById(payload.candidateId);
     if (!candidate) {
       throw new Error('Candidate not found');
+    }
+
+    // Validate source channel authorization: never trust channel names or video titles alone
+    const sourceChannelDoc = await SourceChannel.findOne({
+      channelId: candidate.channelId,
+      officialSourceVerificationStatus: 'verified',
+      isEnabled: true,
+    });
+    const isKnownOfficial = OFFICIAL_CHANNELS.some((c) => c.channelId === candidate.channelId);
+    if (!sourceChannelDoc && !isKnownOfficial && !payload.reviewerNotes?.includes('channel_verified_override')) {
+      throw new Error(
+        `Cannot verify episode: source channel ID "${candidate.channelId}" (${candidate.channelTitle}) is not a verified authorized distributor channel. Add and verify the channel in Source Channels first.`
+      );
     }
 
     // Resolve target anime
@@ -55,6 +70,25 @@ export class VerificationService {
     const title = payload.episodeTitle || candidate.videoTitle;
     const reviewer = payload.reviewerName || 'admin';
 
+    if (episodeNumber < 1 || !Number.isInteger(episodeNumber)) {
+      throw new Error(`Invalid episode number: ${episodeNumber}. Episode number must be a positive integer.`);
+    }
+    if (seasonNumber < 1 || !Number.isInteger(seasonNumber)) {
+      throw new Error(`Invalid season number: ${seasonNumber}. Season number must be a positive integer.`);
+    }
+
+    // Check for conflicting video ID source mapping across different anime
+    const conflictingEp = await Episode.findOne({
+      youtubeVideoId: candidate.youtubeVideoId,
+      isPublished: true,
+      anime: { $ne: anime._id },
+    });
+    if (conflictingEp) {
+      throw new Error(
+        `YouTube video ID ${candidate.youtubeVideoId} is already mapped to another anime (${conflictingEp.anime}). Conflicting episode source mappings are prohibited.`
+      );
+    }
+
     // Find or create AnimeVersion for this audio language
     let version = await AnimeVersion.findOne({
       anime: anime._id,
@@ -67,6 +101,7 @@ export class VerificationService {
         audioLanguage,
         languageCode: audioLanguage.toLowerCase().slice(0, 2),
         channelName: candidate.channelTitle,
+        sourceChannel: sourceChannelDoc?._id,
         verificationStatus: 'verified',
         verifiedAt: new Date(),
         verificationNotes: 'Verified via candidate review workflow',

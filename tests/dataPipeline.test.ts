@@ -6,8 +6,11 @@ import { Anime } from '../src/lib/db/models/Anime';
 import { AnimeVersion } from '../src/lib/db/models/AnimeVersion';
 import { Episode } from '../src/lib/db/models/Episode';
 import { YouTubeCandidate } from '../src/lib/db/models/YouTubeCandidate';
+import { ImportJob } from '../src/lib/db/models/ImportJob';
 import { CatalogueService } from '../src/lib/services/catalogueService';
 import { VerificationService } from '../src/lib/services/verificationService';
+import { YouTubeDiscoveryService } from '../src/lib/services/youtubeDiscoveryService';
+import { YouTubeService } from '../src/lib/services/youtubeService';
 import { isAuthorizedAdmin } from '../src/lib/auth/adminAuth';
 
 describe('AnimeYT Data Pipeline & Verification Tests', () => {
@@ -16,11 +19,12 @@ describe('AnimeYT Data Pipeline & Verification Tests', () => {
     await Anime.deleteMany({
       $or: [
         { slug: { $regex: /^test-/ } },
-        { anilistId: { $in: [9999991, 9999992, 9999993, 9999994] } },
+        { anilistId: { $in: [9999991, 9999992, 9999993, 9999994, 9999995, 9999996, 9999997, 9999998, 9999999] } },
       ],
     });
     await Episode.deleteMany({ youtubeVideoId: { $regex: /^test-vid-/ } });
     await YouTubeCandidate.deleteMany({ youtubeVideoId: { $regex: /^test-vid-/ } });
+    await ImportJob.deleteMany({ jobType: { $regex: /test/ } });
   });
 
   after(async () => {
@@ -28,6 +32,7 @@ describe('AnimeYT Data Pipeline & Verification Tests', () => {
     await Anime.deleteMany({ slug: { $regex: /^test-/ } });
     await Episode.deleteMany({ youtubeVideoId: { $regex: /^test-vid-/ } });
     await YouTubeCandidate.deleteMany({ youtubeVideoId: { $regex: /^test-vid-/ } });
+    await ImportJob.deleteMany({ jobType: { $regex: /test/ } });
     await mongoose.disconnect();
   });
 
@@ -384,6 +389,277 @@ describe('AnimeYT Data Pipeline & Verification Tests', () => {
 
     const nonExistentEps = await CatalogueService.getEpisodesForAnime('xyz-non-existent-slug');
     assert.deepStrictEqual(nonExistentEps, []);
+  });
+
+  test('Missing YouTube credentials return structured error, mark job failed, and create 0 candidates or episodes', async () => {
+    const originalKey = process.env.YOUTUBE_API_KEY;
+    delete process.env.YOUTUBE_API_KEY;
+
+    const initialCandidateCount = await YouTubeCandidate.countDocuments({});
+    const initialEpisodeCount = await Episode.countDocuments({});
+
+    try {
+      // Direct YouTubeService fetchPlaylistVideos call
+      const playlistRes = await YouTubeService.fetchPlaylistVideos('PLtest-missing-key');
+      assert.deepStrictEqual(playlistRes.videos, []);
+      assert.ok(playlistRes.error?.includes('YouTube API key is not configured'));
+
+      // Direct YouTubeService searchChannelVideos call
+      const searchRes = await YouTubeService.searchChannelVideos('UCGbsPEK2iN416c1Nl3dFh7w', 'Episode 1');
+      assert.deepStrictEqual(searchRes.videos, []);
+      assert.ok(searchRes.error?.includes('YouTube API key is not configured'));
+
+      // Discovery Service call
+      const discoveryResult = await YouTubeDiscoveryService.discoverCandidates({
+        searchQuery: 'test-missing-credentials-query',
+      });
+
+      assert.strictEqual(discoveryResult.status, 'failed', 'Discovery job must fail when API key missing');
+      assert.ok(discoveryResult.errorSummary?.includes('YouTube API key is not configured'));
+      assert.strictEqual(discoveryResult.newCandidatesCount, 0);
+      assert.strictEqual(discoveryResult.totalDiscovered, 0);
+
+      // Verify ImportJob in DB
+      const job = await ImportJob.findById(discoveryResult.jobId);
+      assert.ok(job);
+      assert.strictEqual(job.status, 'failed');
+      assert.ok(job.errorSummary?.includes('YouTube API key is not configured'));
+
+      // Ensure zero simulated or fake records created
+      const afterCandidateCount = await YouTubeCandidate.countDocuments({});
+      const afterEpisodeCount = await Episode.countDocuments({});
+      assert.strictEqual(afterCandidateCount, initialCandidateCount, 'Must never create fake candidates when API key is missing');
+      assert.strictEqual(afterEpisodeCount, initialEpisodeCount, 'Must never create fake episodes when API key is missing');
+    } finally {
+      process.env.YOUTUBE_API_KEY = originalKey;
+    }
+  });
+
+  test('Quota exhaustion sets import job to failed, returns structured error, and creates 0 fake records', async () => {
+    const originalFetch = global.fetch;
+    const initialCandidateCount = await YouTubeCandidate.countDocuments({});
+    const initialEpisodeCount = await Episode.countDocuments({});
+
+    // Mock fetch to simulate YouTube API 403 quotaExceeded
+    global.fetch = async () => {
+      return new Response(
+        JSON.stringify({
+          error: {
+            errors: [
+              {
+                domain: 'youtube.quota',
+                reason: 'quotaExceeded',
+                message: 'The request cannot be completed because you have exceeded your quota.',
+              },
+            ],
+            code: 403,
+            message: 'The request cannot be completed because you have exceeded your quota.',
+          },
+        }),
+        { status: 403, headers: { 'Content-Type': 'application/json' } }
+      );
+    };
+
+    try {
+      const result = await YouTubeDiscoveryService.discoverCandidates({
+        searchQuery: 'test-quota-exhaustion-query',
+      });
+
+      assert.strictEqual(result.status, 'failed', 'Job status must be failed on quota exhaustion');
+      assert.ok(result.errorSummary?.includes('quota exceeded'), 'Error summary must mention quota exceeded');
+      assert.strictEqual(result.newCandidatesCount, 0, 'No candidates created');
+      assert.strictEqual(result.totalDiscovered, 0);
+
+      // Verify ImportJob in DB
+      const job = await ImportJob.findById(result.jobId);
+      assert.ok(job);
+      assert.strictEqual(job.status, 'failed');
+      assert.ok(job.errorSummary?.includes('quota exceeded'));
+
+      // Ensure zero fake candidates or episodes were added
+      const afterCandidateCount = await YouTubeCandidate.countDocuments({});
+      const afterEpisodeCount = await Episode.countDocuments({});
+      assert.strictEqual(afterCandidateCount, initialCandidateCount, 'Must never create fake candidates on quota exhaustion');
+      assert.strictEqual(afterEpisodeCount, initialEpisodeCount, 'Must never create fake episodes on quota exhaustion');
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
+  test('Empty search returns 0 candidates with completed status without injecting fake data', async () => {
+    const originalFetch = global.fetch;
+    const initialCandidateCount = await YouTubeCandidate.countDocuments({});
+
+    // Mock fetch returning empty items array
+    global.fetch = async () => {
+      return new Response(JSON.stringify({ items: [] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    };
+
+    try {
+      const result = await YouTubeDiscoveryService.discoverCandidates({
+        searchQuery: 'test-empty-search-query-xyz-nothing-here',
+      });
+
+      assert.strictEqual(result.status, 'completed');
+      assert.strictEqual(result.totalDiscovered, 0);
+      assert.strictEqual(result.newCandidatesCount, 0);
+      assert.strictEqual(result.failedCount, 0);
+
+      const afterCandidateCount = await YouTubeCandidate.countDocuments({});
+      assert.strictEqual(afterCandidateCount, initialCandidateCount, 'No fake candidates should be injected on empty search');
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
+  test('Discovery and verification reject unauthorized source channel IDs', async () => {
+    // 1. Discovery rejects unauthorized channel ID
+    const unauthorizedChannelId = 'UCunauthorized_pirate_channel_999';
+    const discoveryRes = await YouTubeDiscoveryService.discoverCandidates({
+      channelId: unauthorizedChannelId,
+    });
+
+    assert.strictEqual(discoveryRes.status, 'failed');
+    assert.ok(discoveryRes.errorSummary?.includes('not a verified authorized source channel'));
+
+    // 2. VerificationService rejects candidate from unauthorized channel ID
+    const cand = await YouTubeCandidate.create({
+      youtubeVideoId: 'test-vid-unauth-channel',
+      channelId: unauthorizedChannelId,
+      channelTitle: 'Unverified Pirate Channel',
+      videoTitle: 'Episode 1 Unofficial Upload',
+      claimedLanguage: 'Japanese',
+      verificationStatus: 'discovered',
+    });
+
+    const anime = await Anime.create({
+      anilistId: 9999997,
+      title: 'Test Channel Auth Anime',
+      slug: 'test-channel-auth-anime',
+      synopsis: 'Testing channel authorization.',
+      releaseYear: 2024,
+      status: 'Ongoing',
+      genres: ['Action'],
+      verifiedEpisodeCount: 0,
+    });
+
+    await assert.rejects(
+      async () => {
+        await VerificationService.verifyAndPublish({
+          candidateId: cand._id.toString(),
+          animeSlug: anime.slug,
+          episodeNumber: 1,
+        });
+      },
+      /is not a verified authorized distributor channel/
+    );
+
+    // Ensure candidate remained unverified and no episode created
+    const candAfter = await YouTubeCandidate.findById(cand._id);
+    assert.strictEqual(candAfter?.verificationStatus, 'discovered');
+    const epCount = await Episode.countDocuments({ youtubeVideoId: 'test-vid-unauth-channel' });
+    assert.strictEqual(epCount, 0, 'No episode record should be created for unauthorized channel');
+
+    // Clean up
+    await Anime.deleteOne({ _id: anime._id });
+    await YouTubeCandidate.deleteOne({ _id: cand._id });
+  });
+
+  test('VerificationService rejects conflicting video ID mapping to another anime', async () => {
+    // Anime A
+    const animeA = await Anime.create({
+      anilistId: 9999998,
+      title: 'Test Anime A Conflicting Mapping',
+      slug: 'test-anime-a-conflict',
+      synopsis: 'First anime.',
+      releaseYear: 2024,
+      status: 'Ongoing',
+      genres: ['Action'],
+      verifiedEpisodeCount: 0,
+    });
+
+    // Anime B
+    const animeB = await Anime.create({
+      anilistId: 9999999,
+      title: 'Test Anime B Conflicting Mapping',
+      slug: 'test-anime-b-conflict',
+      synopsis: 'Second anime.',
+      releaseYear: 2024,
+      status: 'Ongoing',
+      genres: ['Drama'],
+      verifiedEpisodeCount: 0,
+    });
+
+    const videoId = 'test-vid-conflict-shared';
+
+    // Candidate for Anime A
+    const candA = await YouTubeCandidate.create({
+      youtubeVideoId: videoId,
+      channelId: 'UCGbsPEK2iN416c1Nl3dFh7w', // Muse Asia (authorized)
+      channelTitle: 'Muse Asia',
+      videoTitle: 'Anime A Episode 1',
+      candidateAnimeId: animeA._id,
+      candidateAnimeSlug: animeA.slug,
+      candidateEpisodeNumber: 1,
+      claimedLanguage: 'Japanese',
+      verificationStatus: 'discovered',
+    });
+
+    // Verify and publish for Anime A
+    const resA = await VerificationService.verifyAndPublish({
+      candidateId: candA._id.toString(),
+      animeSlug: animeA.slug,
+      episodeNumber: 1,
+    });
+    assert.strictEqual(resA.success, true);
+
+    // Attempt 1: Attempt to re-verify the candidate targeting Anime B instead of Anime A
+    await assert.rejects(
+      async () => {
+        await VerificationService.verifyAndPublish({
+          candidateId: candA._id.toString(),
+          animeSlug: animeB.slug,
+          episodeNumber: 1,
+        });
+      },
+      /is already mapped to another anime/
+    );
+
+    // Attempt 2: Even if candidate is deleted and re-discovered targeting Anime B,
+    // the existing published episode for Anime A must prevent it being mapped to Anime B
+    await YouTubeCandidate.deleteOne({ _id: candA._id });
+
+    const candB = await YouTubeCandidate.create({
+      youtubeVideoId: videoId,
+      channelId: 'UCGbsPEK2iN416c1Nl3dFh7w',
+      channelTitle: 'Muse Asia',
+      videoTitle: 'Anime B Episode 1 Attempting Conflict',
+      candidateAnimeId: animeB._id,
+      candidateAnimeSlug: animeB.slug,
+      candidateEpisodeNumber: 1,
+      claimedLanguage: 'Japanese',
+      verificationStatus: 'discovered',
+    });
+
+    await assert.rejects(
+      async () => {
+        await VerificationService.verifyAndPublish({
+          candidateId: candB._id.toString(),
+          animeSlug: animeB.slug,
+          episodeNumber: 1,
+        });
+      },
+      /is already mapped to another anime/
+    );
+
+    // Clean up
+    await Anime.deleteMany({ _id: { $in: [animeA._id, animeB._id] } });
+    await AnimeVersion.deleteMany({ anime: { $in: [animeA._id, animeB._id] } });
+    await Episode.deleteMany({ youtubeVideoId: videoId });
+    await YouTubeCandidate.deleteMany({ _id: candB._id });
   });
 });
 
