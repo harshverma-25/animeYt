@@ -61,11 +61,11 @@ export class CatalogueService {
   /**
    * Search and filter anime from MongoDB
    */
-  static async getCatalogue(params: CatalogueQueryParams = {}): Promise<PaginatedResult<IAnime & { availableAudioLanguages: string[]; totalEpisodes: number }>> {
+  static getCatalogue(params: CatalogueQueryParams = {}): Promise<PaginatedResult<IAnime & { availableAudioLanguages: string[]; totalEpisodes: number }>> {
     const cacheKey = JSON.stringify(params || {});
     const cached = catalogueCache.get(cacheKey);
     if (cached && cached.expiry > Date.now()) {
-      return cached.data;
+      return Promise.resolve(cached.data);
     }
 
     if (inFlightRequests.has(cacheKey)) {
@@ -192,14 +192,12 @@ export class CatalogueService {
 
       catalogueCache.set(cacheKey, { data: result, expiry: Date.now() + DEFAULT_TTL_MS });
       return result;
-    })();
+    })().finally(() => {
+      inFlightRequests.delete(cacheKey);
+    });
 
     inFlightRequests.set(cacheKey, fetchPromise);
-    try {
-      return await fetchPromise;
-    } finally {
-      inFlightRequests.delete(cacheKey);
-    }
+    return fetchPromise;
   }
 
   /**

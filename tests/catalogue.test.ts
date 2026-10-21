@@ -190,7 +190,9 @@ describe('AnimeYT Catalogue & Navigation Tests', () => {
     CatalogueService.clearCache();
     const req1 = CatalogueService.getCatalogue({ query: 'Tokyo Revengers' });
     const req2 = CatalogueService.getCatalogue({ query: 'Tokyo Revengers' });
+    assert.strictEqual(req1, req2, 'Concurrent identical calls must share exact Promise reference');
     const [res1, res2] = await Promise.all([req1, req2]);
+    assert.strictEqual(res1, res2, 'Resolved data instances must be identical');
     assert.strictEqual(res1.total, res2.total);
     assert.deepStrictEqual(res1.items.map((i) => i.slug), res2.items.map((i) => i.slug));
   });
