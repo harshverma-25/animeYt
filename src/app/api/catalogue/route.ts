@@ -13,6 +13,8 @@ export async function GET(req: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1', 10);
     const limit = parseInt(searchParams.get('limit') || '20', 10);
     const verifiedOnly = searchParams.get('verifiedOnly') === 'true';
+    const idsParam = searchParams.get('ids');
+    const ids = idsParam ? idsParam.split(',').map((s) => s.trim()).filter(Boolean) : undefined;
 
     const result = await CatalogueService.getCatalogue({
       query,
@@ -22,6 +24,7 @@ export async function GET(req: NextRequest) {
       page,
       limit,
       verifiedOnly,
+      ids,
     });
 
     return NextResponse.json(result);

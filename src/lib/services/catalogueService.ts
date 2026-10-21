@@ -106,6 +106,19 @@ export class CatalogueService {
       query.verifiedEpisodeCount = { $gt: 0 };
     }
 
+    // Specific IDs or Slugs filter (for batch watchlist retrieval)
+    if (params.ids && params.ids.length > 0) {
+      const validObjectIds = params.ids
+        .filter((id) => mongoose.Types.ObjectId.isValid(id) && id.length === 24)
+        .map((id) => new mongoose.Types.ObjectId(id));
+      const slugs = params.ids.map((id) => id.toLowerCase());
+
+      query.$or = [
+        ...(validObjectIds.length > 0 ? [{ _id: { $in: validObjectIds } }] : []),
+        { slug: { $in: slugs } },
+      ];
+    }
+
     // Sort options
     let sortObj: Record<string, 1 | -1> = { popularityScore: -1, createdAt: -1 };
     if (params.sortBy === 'recent') {

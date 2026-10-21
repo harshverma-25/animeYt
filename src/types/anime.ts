@@ -157,6 +157,7 @@ export interface CatalogueQueryParams {
   page?: number;
   limit?: number;
   verifiedOnly?: boolean;
+  ids?: string[];
 }
 
 export interface PaginatedResult<T> {

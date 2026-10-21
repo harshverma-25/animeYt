@@ -15,6 +15,7 @@ import {
 import AnimePoster from '@/components/AnimePoster';
 import AnimeCard from '@/components/AnimeCard';
 import LanguageTag from '@/components/LanguageTag';
+import { useWatchlist } from '@/hooks/useWatchlist';
 
 export default function AnimeDetailsPage() {
   const params = useParams();
@@ -22,9 +23,11 @@ export default function AnimeDetailsPage() {
 
   const [anime, setAnime] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [isSaved, setIsSaved] = useState(false);
+  const [feedback, setFeedback] = useState<string | null>(null);
   const [selectedVersionIndex, setSelectedVersionIndex] = useState(0);
   const [moreLikeThis, setMoreLikeThis] = useState<any[]>([]);
+
+  const { isInWatchlist, toggleWatchlist } = useWatchlist();
 
   useEffect(() => {
     if (!slug) return;
@@ -166,23 +169,43 @@ export default function AnimeDetailsPage() {
               </div>
             )}
 
-            <button
-              onClick={() => setIsSaved(!isSaved)}
-              className="btn-secondary gap-2 text-[15px] px-6"
-              aria-label="Add to Watchlist"
-            >
-              {isSaved ? (
-                <>
-                  <Check strokeWidth={1.8} className="w-5 h-5 text-[#FF8FB4]" />
-                  <span>In Watchlist</span>
-                </>
-              ) : (
-                <>
-                  <Bookmark strokeWidth={1.8} className="w-5 h-5" />
-                  <span>Add to Watchlist</span>
-                </>
-              )}
-            </button>
+            {(() => {
+              const isSaved = anime ? isInWatchlist(anime._id?.toString() || anime.id, anime.slug) : false;
+              return (
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => {
+                      if (!anime) return;
+                      const animeId = anime._id?.toString() || anime.id || anime.slug;
+                      const added = toggleWatchlist(animeId, anime.slug);
+                      setFeedback(added ? 'Added to your Watchlist' : 'Removed from your Watchlist');
+                      setTimeout(() => setFeedback(null), 3000);
+                    }}
+                    className={`btn-secondary gap-2 text-[15px] px-6 transition-all ${
+                      isSaved ? 'border-[#FF8FB4]/50 bg-white/10' : ''
+                    }`}
+                    aria-label={isSaved ? 'In Watchlist' : 'Add to Watchlist'}
+                  >
+                    {isSaved ? (
+                      <>
+                        <Check strokeWidth={2} className="w-5 h-5 text-[#FF8FB4]" />
+                        <span className="text-white font-semibold">In Watchlist</span>
+                      </>
+                    ) : (
+                      <>
+                        <Bookmark strokeWidth={1.8} className="w-5 h-5" />
+                        <span>Add to Watchlist</span>
+                      </>
+                    )}
+                  </button>
+                  {feedback && (
+                    <span className="text-[13px] font-medium text-[#FF8FB4] bg-[#D81B60]/20 border border-[#D81B60]/30 px-3 py-1.5 rounded-full transition-all animate-in fade-in">
+                      {feedback}
+                    </span>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         </div>
       </div>

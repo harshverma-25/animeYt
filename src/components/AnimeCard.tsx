@@ -1,15 +1,20 @@
 'use client';
 import React from 'react';
 import Link from 'next/link';
+import { Bookmark, Check } from 'lucide-react';
 import AnimePoster from './AnimePoster';
 import LanguageTag from './LanguageTag';
+import { useWatchlist } from '@/hooks/useWatchlist';
 
 interface AnimeCardProps {
   anime: any;
   priority?: boolean;
+  onRemove?: () => void;
 }
 
-export default function AnimeCard({ anime }: AnimeCardProps) {
+export default function AnimeCard({ anime, onRemove }: AnimeCardProps) {
+  const { isInWatchlist, toggleWatchlist } = useWatchlist();
+
   const title = anime.title || 'Untitled Anime';
   const slug = anime.slug || '';
   const releaseYear = anime.releaseYear || '';
@@ -26,6 +31,18 @@ export default function AnimeCard({ anime }: AnimeCardProps) {
     ? `/watch/${slug}/${firstEpisodeId}`
     : `/anime/${slug}`;
 
+  const animeId = anime._id?.toString() || anime.id || anime.slug;
+  const isSaved = isInWatchlist(animeId, anime.slug);
+
+  const handleBookmarkClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    toggleWatchlist(animeId, anime.slug);
+    if (onRemove && isSaved) {
+      onRemove();
+    }
+  };
+
   return (
     <Link
       href={href}
@@ -33,13 +50,33 @@ export default function AnimeCard({ anime }: AnimeCardProps) {
       aria-label={`View ${title}`}
     >
       <div>
-        {/* Compact Aspect 16/10 Poster */}
-        <AnimePoster
-          title={title}
-          episodeCount={verifiedEpisodes > 0 ? verifiedEpisodes : undefined}
-          badge={verifiedEpisodes > 0 ? `${verifiedEpisodes} EPS` : undefined}
-          thumbnailUrl={posterUrl}
-        />
+        {/* Compact Aspect 16/10 Poster with Quick Bookmark Action */}
+        <div className="relative">
+          <AnimePoster
+            title={title}
+            episodeCount={verifiedEpisodes > 0 ? verifiedEpisodes : undefined}
+            badge={verifiedEpisodes > 0 ? `${verifiedEpisodes} EPS` : undefined}
+            thumbnailUrl={posterUrl}
+          />
+
+          <button
+            type="button"
+            onClick={handleBookmarkClick}
+            className={`absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center transition-all z-10 ${
+              isSaved
+                ? 'bg-[#D81B60] text-white opacity-100 shadow-md scale-100'
+                : 'bg-black/60 backdrop-blur-md text-white/70 hover:text-white hover:bg-black/80 opacity-0 group-hover:opacity-100'
+            }`}
+            title={isSaved ? 'In Watchlist (Click to remove)' : 'Add to Watchlist'}
+            aria-label={isSaved ? 'In Watchlist' : 'Add to Watchlist'}
+          >
+            {isSaved ? (
+              <Check strokeWidth={2.5} className="w-4 h-4" />
+            ) : (
+              <Bookmark strokeWidth={2} className="w-4 h-4" />
+            )}
+          </button>
+        </div>
 
         {/* Info Section */}
         <div className="pt-2.5 pb-1 px-1">

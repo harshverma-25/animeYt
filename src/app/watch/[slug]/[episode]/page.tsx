@@ -12,7 +12,9 @@ import {
   Share2,
   Check,
   AlertTriangle,
+  Bookmark,
 } from 'lucide-react';
+import { useWatchlist } from '@/hooks/useWatchlist';
 
 export default function WatchEpisodePage() {
   const params = useParams();
@@ -22,6 +24,7 @@ export default function WatchEpisodePage() {
   const [anime, setAnime] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const { isInWatchlist, toggleWatchlist } = useWatchlist();
 
   useEffect(() => {
     if (!slug) return;
@@ -125,6 +128,34 @@ export default function WatchEpisodePage() {
         </div>
 
         <div className="flex items-center gap-2.5">
+          {anime && (() => {
+            const isSaved = isInWatchlist(anime._id?.toString() || anime.id, anime.slug);
+            return (
+              <button
+                onClick={() => {
+                  const animeId = anime._id?.toString() || anime.id || anime.slug;
+                  toggleWatchlist(animeId, anime.slug);
+                }}
+                className={`glass-chip inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[12px] font-semibold transition-all ${
+                  isSaved ? 'text-[#FF8FB4] border-[#FF8FB4]/50 bg-[#D81B60]/20' : 'text-white/80 hover:text-white'
+                }`}
+                aria-label={isSaved ? 'In Watchlist' : 'Add to Watchlist'}
+              >
+                {isSaved ? (
+                  <>
+                    <Check strokeWidth={2} className="w-3.5 h-3.5 text-[#FF8FB4]" />
+                    <span>In Watchlist</span>
+                  </>
+                ) : (
+                  <>
+                    <Bookmark strokeWidth={1.8} className="w-3.5 h-3.5" />
+                    <span>Add to Watchlist</span>
+                  </>
+                )}
+              </button>
+            );
+          })()}
+
           <button
             onClick={handleCopyLink}
             className="glass-chip inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[12px] font-semibold text-white/80 hover:text-white transition-all"
