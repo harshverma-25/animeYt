@@ -1,34 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { isAuthorizedAdmin } from '@/lib/auth/adminAuth';
 import { AutoEpisodeDetectionService } from '@/lib/services/autoEpisodeDetectionService';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60; // Up to 60s for serverless crons
+export const maxDuration = 60; // Up to 60s for scan execution
 
 export async function GET(req: NextRequest) {
-  return handleCron(req);
+  return handleManualScan(req);
 }
 
 export async function POST(req: NextRequest) {
-  return handleCron(req);
+  return handleManualScan(req);
 }
 
-async function handleCron(req: NextRequest) {
+async function handleManualScan(req: NextRequest) {
   const authHeader = req.headers.get('authorization');
   const cronSecret = process.env.CRON_SECRET;
-  const adminSecret = process.env.ADMIN_SECRET_KEY || 'animeyt-admin-dev-key';
-  const isVercelCron = req.headers.get('user-agent')?.includes('vercel-cron');
-
   const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
 
+  // Strict authorization: requires valid admin secret or CRON_SECRET token.
+  // Note: Automated Vercel Cron scheduling is removed from vercel.json. Insecure User-Agent checks and unauthenticated dev bypasses are removed.
   const isAuthorized =
-    (cronSecret && token === cronSecret) ||
-    (adminSecret && token === adminSecret) ||
-    isVercelCron ||
-    (process.env.NODE_ENV === 'development' && !cronSecret);
+    isAuthorizedAdmin(req) ||
+    Boolean(cronSecret && token && token === cronSecret);
 
   if (!isAuthorized) {
     return NextResponse.json(
-      { error: 'Unauthorized: Invalid cron authentication token' },
+      { error: 'Unauthorized: Valid administrator or execution credentials required.' },
       { status: 401 }
     );
   }
@@ -41,7 +39,7 @@ async function handleCron(req: NextRequest) {
       ...result,
     });
   } catch (error: any) {
-    console.error('Automatic episode detection cron failed:', error);
+    console.error('Manual episode detection scan failed:', error);
     return NextResponse.json(
       {
         success: false,
