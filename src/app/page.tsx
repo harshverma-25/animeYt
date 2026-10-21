@@ -1,12 +1,10 @@
 import React from 'react';
 import { Flame, Clock } from 'lucide-react';
 import Hero from '@/components/Hero';
-import TrendingPanel from '@/components/TrendingPanel';
 import SectionHeader from '@/components/SectionHeader';
 import AnimeCard from '@/components/AnimeCard';
 import {
   getFeaturedAnime,
-  getTrendingAnime,
   getPopularAnime,
   getRecentlyAddedAnime,
 } from '@/data/anime';
@@ -18,20 +16,14 @@ export const metadata = {
 
 export default function HomePage() {
   const featured = getFeaturedAnime();
-  const trending = getTrendingAnime();
   const popular = getPopularAnime();
   const recentlyAdded = getRecentlyAddedAnime();
 
   return (
     <div className="flex flex-col gap-9 w-full">
-      {/* Hero row: Featured card (flex 999 1 560px) + Trending Now panel (flex 1 1 300px) */}
-      <section className="flex flex-col xl:flex-row gap-6 items-stretch w-full">
-        <div className="flex-[999_1_560px] min-w-0">
-          <Hero featuredAnime={featured} />
-        </div>
-        <div className="flex-[1_1_300px] min-w-0">
-          <TrendingPanel trendingAnime={trending} />
-        </div>
+      {/* Hero row (Full Width without Trending Now) */}
+      <section className="w-full">
+        <Hero featuredAnime={featured} />
       </section>
 
       {/* Section: Popular Anime */}

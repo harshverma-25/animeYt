@@ -10,13 +10,7 @@ interface AppShellProps {
 
 export default function AppShell({ children }: AppShellProps) {
   return (
-    <div className="relative min-h-screen bg-[#0F0B1A] text-white overflow-hidden">
-      {/* 4 Fixed Ambient Glow Orbs behind everything */}
-      <div className="ambient-orb orb-pink" />
-      <div className="ambient-orb orb-violet" />
-      <div className="ambient-orb orb-teal" />
-      <div className="ambient-orb orb-orange" />
-
+    <div className="relative min-h-screen bg-[#0A0812] text-white">
       {/* Main Container: Page padding 28px, gap 24px, flex-wrap row */}
       <div className="relative z-10 p-[16px] sm:p-[24px] lg:p-[28px] max-w-[1600px] mx-auto min-h-screen">
         <div className="flex flex-col lg:flex-row gap-[24px] items-start">

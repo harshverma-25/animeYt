@@ -37,12 +37,12 @@ export default function Hero({ featuredAnime }: HeroProps) {
 
   return (
     <div
-      className="glass-large rounded-[44px] p-5 sm:p-7 relative overflow-hidden flex flex-col lg:flex-row items-center gap-6 lg:gap-8 min-h-[460px] transition-all"
+      className="glass-large rounded-[44px] p-6 sm:p-9 lg:p-10 relative overflow-hidden flex flex-col lg:flex-row items-center justify-between gap-8 lg:gap-12 min-h-[440px] transition-all"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
       {/* Left Column: Details & CTA */}
-      <div className="flex-1 flex flex-col justify-between h-full z-10 w-full">
+      <div className="flex-1 flex flex-col justify-between h-full z-10 w-full min-w-0">
         <div>
           {/* Pill headers */}
           <div className="flex items-center gap-2.5 mb-3 flex-wrap">
@@ -56,17 +56,17 @@ export default function Hero({ featuredAnime }: HeroProps) {
           </div>
 
           {/* Title */}
-          <h1 className="text-[38px] sm:text-[52px] lg:text-[68px] font-extrabold text-white tracking-[-2px] leading-[0.98] mb-3 max-w-md">
+          <h1 className="text-[38px] sm:text-[54px] lg:text-[66px] font-extrabold text-white tracking-[-2px] leading-[0.98] mb-3 max-w-2xl">
             {anime.title.includes(':') ? anime.title.split(':')[0] : anime.title}
           </h1>
 
           {/* Description */}
-          <p className="text-[14px] sm:text-[15px] text-white/75 line-clamp-3 mb-4 max-w-xl leading-relaxed">
+          <p className="text-[14.5px] sm:text-[15.5px] text-white/75 line-clamp-3 mb-4 max-w-2xl leading-relaxed">
             {anime.synopsis}
           </p>
 
           {/* Meta info */}
-          <div className="text-[13px] font-medium text-white/65 mb-6 flex items-center gap-2">
+          <div className="text-[13.5px] font-medium text-white/65 mb-6 flex items-center gap-2 flex-wrap">
             <span>{anime.releaseYear}</span>
             <span>•</span>
             <span>{anime.genres.join(', ')}</span>
@@ -78,12 +78,12 @@ export default function Hero({ featuredAnime }: HeroProps) {
         </div>
 
         {/* Buttons and Carousel Controls */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5 pt-2">
           {/* Action buttons */}
-          <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-3.5 flex-wrap">
             <Link
               href={watchHref}
-              className="btn-primary gap-2.5 text-[15px]"
+              className="btn-primary gap-2.5 text-[15px] px-8"
               aria-label={`Watch ${anime.title} on YouTube`}
             >
               <Play strokeWidth={2} className="w-5 h-5 fill-white" />
@@ -92,7 +92,7 @@ export default function Hero({ featuredAnime }: HeroProps) {
 
             <Link
               href={`/anime/${anime.slug}`}
-              className="btn-secondary text-[15px]"
+              className="btn-secondary text-[15px] px-6"
               aria-label={`View details for ${anime.title}`}
             >
               <span>View Details</span>
@@ -110,7 +110,7 @@ export default function Hero({ featuredAnime }: HeroProps) {
                   className={`rounded-full transition-all duration-300 ${
                     idx === currentIndex
                       ? 'w-[34px] h-[8px] bg-[#D81B60]'
-                      : 'w-[8px] h-[8px] bg-white/25 hover:bg-white/45'
+                      : 'w-[8px] h-[8px] bg-white/20 hover:bg-white/40'
                   }`}
                   aria-label={`Slide ${idx + 1}`}
                 />
@@ -139,60 +139,21 @@ export default function Hero({ featuredAnime }: HeroProps) {
       </div>
 
       {/* Right Column: 34px rounded Key Art Card */}
-      <div className="w-full lg:w-[360px] xl:w-[410px] shrink-0">
-        <div
-          className="relative rounded-[34px] aspect-[4/5] sm:aspect-[3/4] lg:aspect-[4/5] w-full overflow-hidden shadow-2xl border border-white/20 select-none group"
-          style={{
-            background: `linear-gradient(175deg, ${anime.themeGradient?.from || '#8B1E3F'} 0%, ${anime.themeGradient?.via || '#4A122E'} 55%, ${anime.themeGradient?.to || '#1A0B2E'} 100%)`,
-          }}
-        >
-          {/* Key Art Glowing Sun & Silhouette as seen in reference image */}
-          <div className="absolute inset-0 pointer-events-none">
-            {/* Glowing moon/sun */}
-            <div
-              className="absolute rounded-full"
-              style={{
-                width: '160px',
-                height: '160px',
-                top: '28%',
-                right: '18%',
-                background: 'radial-gradient(circle, #FFF6F0 0%, #FFDFCF 45%, rgba(255,200,180,0.1) 75%, transparent 100%)',
-                boxShadow: `0 0 70px 20px ${anime.themeGradient?.orbColor || '#FF5A7A'}88`,
-              }}
-            />
-
-            {/* Mountains silhouette */}
-            <svg
-              viewBox="0 0 300 400"
-              preserveAspectRatio="none"
-              className="absolute inset-0 w-full h-full mix-blend-multiply opacity-55"
-            >
-              <path
-                d="M -10 400 L 70 250 L 150 330 L 230 220 L 320 400 Z"
-                fill="#0F061C"
-              />
-              <path
-                d="M -20 400 L 60 290 L 140 350 L 220 270 L 320 400 Z"
-                fill="#080210"
-                opacity="0.9"
-              />
-            </svg>
-
-            {/* Sparkle micro-dots */}
-            <div className="absolute inset-0 opacity-25 bg-[radial-gradient(circle_at_15%_15%,#FFF_1.5px,transparent_1.5px),radial-gradient(circle_at_80%_25%,#FFF_2px,transparent_2px),radial-gradient(circle_at_45%_55%,#FFF_1.5px,transparent_1.5px)] bg-[length:120px_120px]" />
-          </div>
-
-          {/* YouTube HQ Thumbnail Blend */}
-          {firstEp && (
+      <div className="w-full lg:w-[380px] xl:w-[440px] shrink-0">
+        <div className="relative rounded-[34px] aspect-[4/5] sm:aspect-[16/11] lg:aspect-[4/5] w-full overflow-hidden shadow-2xl border border-white/15 select-none group bg-[#120E1E]">
+          {/* YouTube HQ Thumbnail */}
+          {firstEp ? (
             <img
               src={`https://img.youtube.com/vi/${firstEp.youtubeVideoId}/hqdefault.jpg`}
               alt={anime.title}
-              className="absolute inset-0 w-full h-full object-cover mix-blend-overlay opacity-60 group-hover:scale-105 transition-transform duration-700"
+              className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
             />
+          ) : (
+            <div className="absolute inset-0 bg-gradient-to-br from-[#1E1630] to-[#0D0916]" />
           )}
 
-          {/* Dark bottom gradient */}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0A0517]/90 via-transparent to-[#0A0517]/30 pointer-events-none" />
+          {/* Dark cinematic vignette overlay */}
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0A0714] via-[#0A0714]/20 to-[#0A0714]/40 pointer-events-none" />
 
           {/* Top-Left Glass Chip: Language */}
           <div className="absolute top-4 left-4 z-10">
@@ -211,7 +172,7 @@ export default function Hero({ featuredAnime }: HeroProps) {
           {/* Bottom-Left 60px Glass Play Button */}
           <Link
             href={watchHref}
-            className="absolute bottom-4 left-4 z-10 w-[60px] h-[60px] rounded-full glass flex items-center justify-center text-white shadow-xl hover:scale-110 hover:bg-[#D81B60] transition-all group-hover:bg-[#D81B60]/90"
+            className="absolute bottom-4 left-4 z-10 w-[60px] h-[60px] rounded-full glass flex items-center justify-center text-white shadow-xl hover:scale-110 hover:bg-[#D81B60] transition-all group-hover:bg-[#D81B60]"
             aria-label={`Play ${anime.title}`}
           >
             <Play strokeWidth={2} className="w-6 h-6 fill-white ml-0.5" />
