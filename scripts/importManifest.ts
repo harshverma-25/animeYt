@@ -12,6 +12,8 @@ async function run() {
   const langArg = args.find((a) => a.startsWith('--lang='));
   const pubArg = args.find((a) => a.startsWith('--publisher='));
   const stageArg = args.find((a) => a.startsWith('--stage='));
+  const resumeArg = args.find((a) => a.startsWith('--resume='));
+  const maxVideosArg = args.find((a) => a.startsWith('--maxVideos='));
   const verifyArg = args.includes('--verify');
 
   const batchSize = batchArg ? parseInt(batchArg.split('=')[1], 10) : 10;
@@ -19,6 +21,8 @@ async function run() {
   const filterLanguage = langArg ? (langArg.split('=')[1] as any) : undefined;
   const filterPublisher = pubArg ? pubArg.split('=')[1] : undefined;
   const stage = stageArg ? (stageArg.split('=')[1] as any) : 'all';
+  const resumeFromJobId = resumeArg ? resumeArg.split('=')[1] : undefined;
+  const maxVideosPerAnime = maxVideosArg ? parseInt(maxVideosArg.split('=')[1], 10) : 50;
 
   console.log(`Starting Anime Manifest Import Pipeline...`);
   console.log(`- Start Index: ${startIndex}`);
@@ -26,7 +30,9 @@ async function run() {
   console.log(`- Stage: ${stage}`);
   console.log(`- Language Filter: ${filterLanguage || 'All'}`);
   console.log(`- Publisher Filter: ${filterPublisher || 'All'}`);
+  console.log(`- Max Videos Per Anime: ${maxVideosPerAnime}`);
   console.log(`- Auto-Verify Eligible Candidates: ${verifyArg}`);
+  if (resumeFromJobId) console.log(`- Resume From Job: ${resumeFromJobId}`);
 
   const report = await ManifestImportService.importManifest({
     startIndex,
@@ -34,8 +40,9 @@ async function run() {
     filterLanguage,
     filterPublisher,
     autoVerifyEligible: verifyArg,
-    maxVideosPerAnime: 3,
+    maxVideosPerAnime,
     stage,
+    resumeFromJobId,
   });
 
   console.log('\n=============================================');
@@ -45,6 +52,8 @@ async function run() {
   console.log(`Status: ${report.status}`);
   console.log(`Manifest Entries Processed: ${report.totalManifestEntriesProcessed}`);
   console.log(`Matched Canonical Anime: ${report.matchedCanonicalAnime.length}`);
+  console.log(`Anime With Eligible Episodes: ${report.animeWithAtLeastOneEligibleEpisode.length}`);
+  console.log(`Anime With Complete Collections: ${report.animeWithCompleteCollections.length}`);
   console.log(`Anime Metadata Imported: ${report.animeMetadataImportedCount}`);
   console.log(`Real Candidates Discovered: ${report.realCandidatesDiscoveredCount}`);
   console.log(`Verified Official Sources: ${report.verifiedOfficialSourcesCount}`);

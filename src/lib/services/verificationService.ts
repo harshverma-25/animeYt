@@ -108,13 +108,22 @@ export class VerificationService {
       });
     }
 
-    // Upsert published Episode
+    // Upsert published Episode: check by video ID first to avoid duplicate key errors
+    const existingByVid = await Episode.findOne({
+      version: version._id,
+      youtubeVideoId: candidate.youtubeVideoId,
+    });
+
+    const epQuery = existingByVid
+      ? { _id: existingByVid._id }
+      : {
+          version: version._id,
+          seasonNumber,
+          episodeNumber,
+        };
+
     const episode = await Episode.findOneAndUpdate(
-      {
-        version: version._id,
-        seasonNumber,
-        episodeNumber,
-      },
+      epQuery,
       {
         $set: {
           anime: anime._id,
@@ -194,9 +203,13 @@ export class VerificationService {
   static async checkAvailability(youtubeVideoId: string): Promise<boolean> {
     try {
       const url = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${youtubeVideoId}&format=json`;
-      const res = await fetch(url, { method: 'HEAD', cache: 'no-store' });
+      const res = await fetch(url, {
+        method: 'GET',
+        cache: 'no-store',
+        signal: AbortSignal.timeout(3000),
+      });
       return res.ok;
-    } catch (_e) {
+    } catch {
       return false;
     }
   }

@@ -22,6 +22,8 @@ export default function AdminPage() {
   const [manifestBatchSize, setManifestBatchSize] = useState(10);
   const [manifestStartIndex, setManifestStartIndex] = useState(0);
   const [manifestFilterLang, setManifestFilterLang] = useState('');
+  const [manifestMaxVideos, setManifestMaxVideos] = useState(25);
+  const [manifestResumeJobId, setManifestResumeJobId] = useState('');
   const [manifestAutoVerify, setManifestAutoVerify] = useState(false);
   const [importingManifest, setImportingManifest] = useState(false);
   const [manifestReport, setManifestReport] = useState<any>(null);
@@ -84,6 +86,8 @@ export default function AdminPage() {
           startIndex: manifestStartIndex,
           filterLanguage: manifestFilterLang || undefined,
           autoVerifyEligible: manifestAutoVerify,
+          maxVideosPerAnime: manifestMaxVideos,
+          resumeFromJobId: manifestResumeJobId.trim() || undefined,
         }),
       });
       const data = await res.json();
@@ -337,7 +341,7 @@ export default function AdminPage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-4">
             <div>
               <label className="text-xs font-semibold text-white/70 block mb-1">
                 Batch Size
@@ -366,7 +370,7 @@ export default function AdminPage() {
             </div>
             <div>
               <label className="text-xs font-semibold text-white/70 block mb-1">
-                Language Filter (Optional)
+                Language Filter
               </label>
               <select
                 value={manifestFilterLang}
@@ -378,6 +382,31 @@ export default function AdminPage() {
                 <option value="English">English Dubs</option>
                 <option value="Japanese">Japanese Subbed</option>
               </select>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-white/70 block mb-1">
+                Max Videos / Anime
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="150"
+                value={manifestMaxVideos}
+                onChange={(e) => setManifestMaxVideos(parseInt(e.target.value, 10) || 25)}
+                className="glass rounded-xl px-3 py-2 text-sm text-white bg-transparent w-full"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-white/70 block mb-1">
+                Resume Job ID (Optional)
+              </label>
+              <input
+                type="text"
+                placeholder="job-id-..."
+                value={manifestResumeJobId}
+                onChange={(e) => setManifestResumeJobId(e.target.value)}
+                className="glass rounded-xl px-3 py-2 text-sm text-white bg-transparent w-full"
+              />
             </div>
           </div>
 
