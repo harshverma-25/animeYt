@@ -9,6 +9,7 @@ interface AnimePosterProps {
   aspect?: string;
   className?: string;
   badge?: string;
+  priority?: boolean;
 }
 
 export default function AnimePoster({
@@ -18,6 +19,7 @@ export default function AnimePoster({
   aspect = 'aspect-[16/10]',
   className = '',
   badge,
+  priority = false,
 }: AnimePosterProps) {
   const [imageError, setImageError] = useState(false);
 
@@ -37,9 +39,13 @@ export default function AnimePoster({
         <img
           src={thumbnailUrl}
           alt={title}
+          width={400}
+          height={250}
+          loading={priority ? 'eager' : 'lazy'}
+          fetchPriority={priority ? 'high' : 'low'}
+          decoding="async"
           onError={() => setImageError(true)}
           className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-          loading="lazy"
         />
       )}
 

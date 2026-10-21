@@ -39,7 +39,7 @@ export default function Hero({ featuredAnime }: HeroProps) {
 
   return (
     <div
-      className="glass-large rounded-[36px] p-5 sm:p-7 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6 md:gap-8 min-h-[300px] lg:min-h-[320px] transition-all"
+      className="glass-large rounded-[36px] p-5 sm:p-7 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6 md:gap-8 min-h-[300px] lg:min-h-[320px] transition-colors"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
@@ -158,6 +158,11 @@ export default function Hero({ featuredAnime }: HeroProps) {
             <img
               src={posterUrl}
               alt={anime.title}
+              width={640}
+              height={400}
+              loading="eager"
+              fetchPriority="high"
+              decoding="async"
               className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
             />
           ) : (

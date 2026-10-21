@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import { Outfit } from 'next/font/google';
-import { Suspense } from 'react';
 import './globals.css';
 import AppShell from '@/components/AppShell';
 
@@ -49,10 +48,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`dark ${outfit.variable}`}>
+      <head>
+        <link rel="preconnect" href="https://img.youtube.com" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://i.ytimg.com" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://s4.anilist.co" crossOrigin="anonymous" />
+      </head>
       <body className="min-h-screen bg-[#0F0B1A] text-white antialiased font-sans selection:bg-[#D81B60] selection:text-white">
-        <Suspense fallback={<div className="min-h-screen bg-[#0F0B1A]" />}>
-          <AppShell>{children}</AppShell>
-        </Suspense>
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );

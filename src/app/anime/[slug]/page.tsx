@@ -107,6 +107,7 @@ export default function AnimeDetailsPage() {
             thumbnailUrl={anime.poster || undefined}
             aspect="aspect-[3/4]"
             className="rounded-[28px] shadow-2xl border border-white/20"
+            priority={true}
           />
         </div>
 

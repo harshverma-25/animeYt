@@ -12,7 +12,7 @@ interface AnimeCardProps {
   onRemove?: () => void;
 }
 
-export default function AnimeCard({ anime, onRemove }: AnimeCardProps) {
+export default function AnimeCard({ anime, priority = false, onRemove }: AnimeCardProps) {
   const { isInWatchlist, toggleWatchlist } = useWatchlist();
 
   const title = anime.title || 'Untitled Anime';
@@ -57,6 +57,7 @@ export default function AnimeCard({ anime, onRemove }: AnimeCardProps) {
             episodeCount={verifiedEpisodes > 0 ? verifiedEpisodes : undefined}
             badge={verifiedEpisodes > 0 ? `${verifiedEpisodes} EPS` : undefined}
             thumbnailUrl={posterUrl}
+            priority={priority}
           />
 
           <button

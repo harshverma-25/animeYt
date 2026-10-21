@@ -62,8 +62,8 @@ export default async function HomePage() {
           />
 
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {popular.map((anime) => (
-              <AnimeCard key={anime.id || anime.slug} anime={anime} />
+            {popular.map((anime, index) => (
+              <AnimeCard key={anime.id || anime.slug} anime={anime} priority={index < 5} />
             ))}
           </div>
         </section>
