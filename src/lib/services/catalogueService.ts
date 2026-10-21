@@ -171,9 +171,11 @@ export class CatalogueService {
       const items = animeDocs.map((anime: any) => {
         const animeVersions = versions.filter((v: any) => v.anime.toString() === anime._id.toString());
         const availableAudioLanguages = Array.from(new Set(animeVersions.map((v: any) => v.audioLanguage as string)));
+        const plain = JSON.parse(JSON.stringify(anime));
 
         return {
-          ...anime,
+          ...plain,
+          _id: anime._id.toString(),
           id: anime._id.toString(),
           availableAudioLanguages,
           totalEpisodes: anime.verifiedEpisodeCount || 0,
@@ -397,8 +399,10 @@ export class CatalogueService {
     const mapAnime = (animeList: any[]) =>
       animeList.map((a: any) => {
         const aVersions = versions.filter((v: any) => v.anime.toString() === a._id.toString());
+        const plain = JSON.parse(JSON.stringify(a));
         return {
-          ...a,
+          ...plain,
+          _id: a._id.toString(),
           id: a._id.toString(),
           availableAudioLanguages: Array.from(new Set(aVersions.map((v: any) => v.audioLanguage as string))),
           totalEpisodes: a.verifiedEpisodeCount || 0,
